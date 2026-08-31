@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1E6B5C">
+<title>روضتي</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --ground:#F2F5F2; --surface:#FFFFFF; --surface-2:#EAF0EC;
+  --ink:#16211D; --ink-2:#5E6F68; --line:#D8E2DC;
+  --accent:#1E6B5C; --on-accent:#FFFFFF; --accent-soft:#DCEAE4; --accent-ink:#0F4438;
+  --amber:#C97E24; --amber-soft:#F7E7CF;
+  --rose:#B44F44; --rose-soft:#F5DEDA;
+  --shadow:0 18px 40px -24px rgba(16,40,34,.45);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --ground:#0D1310; --surface:#161F1B; --surface-2:#1E2A25;
+  --ink:#E7EEEA; --ink-2:#9AAAA3; --line:#2A3833;
+  --accent:#4FB89F; --on-accent:#08120F; --accent-soft:#1B322C; --accent-ink:#8FD9C7;
+  --amber:#E2A559; --amber-soft:#33281A;
+  --rose:#E08376; --rose-soft:#3A211E;
+  --shadow:0 18px 40px -24px rgba(0,0,0,.7);
+  color-scheme:dark;
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font-family:"IBM Plex Sans Arabic","Segoe UI",system-ui,sans-serif;
+  font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.display{font-family:"Baloo Bhaijaan 2","IBM Plex Sans Arabic",system-ui,sans-serif;font-weight:700;margin:0;text-wrap:balance}
+.num{font-variant-numeric:tabular-nums}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- shell ---------- */
+#app{max-width:560px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}
+.topbar{
+  position:sticky;top:0;z-index:30;background:var(--surface);
+  border-bottom:1px solid var(--line);
+  padding:14px 18px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+.topbar .who b{display:block;font-family:"Baloo Bhaijaan 2",sans-serif;font-size:18px;line-height:1.25}
+.topbar .who span{font-size:12.5px;color:var(--ink-2)}
+.avatar{width:38px;height:38px;border-radius:13px;flex:none;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-ink);font-weight:700}
+.iconbtn{background:var(--surface-2);border:none;border-radius:12px;width:38px;height:38px;display:grid;place-items:center;cursor:pointer;color:var(--ink-2)}
+.iconbtn svg{width:17px;height:17px}
+main{flex:1;padding:16px 18px 96px;display:flex;flex-direction:column;gap:16px}
+
+/* ---------- auth ---------- */
+.auth{max-width:400px;margin:0 auto;padding:44px 22px;display:flex;flex-direction:column;gap:20px;min-height:100%;justify-content:center}
+.brand{display:flex;align-items:center;gap:12px}
+.mark{width:46px;height:46px;border-radius:15px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-family:"Baloo Bhaijaan 2",sans-serif;font-weight:800;font-size:22px}
+.brand h1{font-size:30px}
+.brand p{margin:0;font-size:13px;color:var(--ink-2)}
+.segmented{display:flex;background:var(--surface-2);border-radius:14px;padding:4px;gap:4px}
+.segmented button{flex:1;border:none;background:transparent;border-radius:10px;padding:9px;cursor:pointer;font-weight:600;color:var(--ink-2)}
+.segmented button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12.5px;color:var(--ink-2);font-weight:600}
+.field input,.field textarea,.field select{
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;width:100%;
+}
+.field input::placeholder,.field textarea::placeholder{color:var(--ink-2);opacity:.7}
+.help{font-size:12px;color:var(--ink-2);margin:0}
+.err{background:var(--rose-soft);color:var(--rose);border-radius:12px;padding:10px 13px;font-size:13.5px}
+.ok{background:var(--accent-soft);color:var(--accent-ink);border-radius:12px;padding:10px 13px;font-size:13.5px}
+
+.btn{
+  border:none;border-radius:14px;padding:13px;cursor:pointer;
+  font-family:"Baloo Bhaijaan 2",sans-serif;font-size:16px;font-weight:600;
+  background:var(--accent);color:var(--on-accent);
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+}
+.btn[disabled]{opacity:.55;cursor:progress}
+.btn.ghost{background:var(--surface-2);color:var(--ink)}
+.btn.sm{padding:10px;font-size:14px}
+.btn svg{width:17px;height:17px}
+.linkbtn{background:none;border:none;color:var(--accent);cursor:pointer;font-weight:600;font-size:13.5px;padding:0}
+
+/* ---------- pieces ---------- */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  border:1px solid var(--line);background:var(--surface);border-radius:999px;
+  padding:8px 15px;white-space:nowrap;cursor:pointer;font-weight:600;font-size:13.5px;color:var(--ink-2);
+}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.counter{display:flex;gap:9px}
+.pill{flex:1;border-radius:16px;padding:11px 13px;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column}
+.pill b{font-family:"Baloo Bhaijaan 2",sans-serif;font-size:23px;line-height:1.15}
+.pill span{font-size:11.5px;color:var(--ink-2)}
+.pill.ok b{color:var(--accent)} .pill.no b{color:var(--rose)} .pill.left b{color:var(--amber)}
+
+.roster{display:flex;flex-direction:column;gap:8px}
+.kid{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:right;
+  background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:11px 13px;cursor:pointer;
+  transition:background .18s,border-color .18s;
+}
+.kid.present{background:var(--accent-soft);border-color:transparent}
+.kid.left{background:var(--amber-soft);border-color:transparent}
+.kid .nm{flex:1;min-width:0}
+.kid .nm b{display:block;font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kid .nm span{font-size:12px;color:var(--ink-2)}
+.check{width:28px;height:28px;border-radius:10px;flex:none;display:grid;place-items:center;border:1.5px solid var(--line);color:transparent}
+.kid.present .check{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.kid.left .check{background:var(--amber);border-color:var(--amber);color:var(--on-accent)}
+.check svg{width:15px;height:15px}
+.kid.busy{opacity:.5;pointer-events:none}
+
+.hero{border-radius:20px;padding:18px;background:var(--accent-soft);border:1px solid transparent;display:flex;flex-direction:column;gap:5px}
+.hero.out{background:var(--surface-2)} .hero.left{background:var(--amber-soft)}
+.hero .st{display:flex;align-items:center;gap:9px;font-family:"Baloo Bhaijaan 2",sans-serif;font-size:19px;color:var(--accent-ink)}
+.hero.out .st{color:var(--ink-2)} .hero.left .st{color:var(--amber)}
+.dot{width:9px;height:9px;border-radius:50%;background:currentColor;flex:none}
+.hero small{color:var(--ink-2);font-size:13px}
+
+.feed{display:flex;flex-direction:column}
+.item{display:grid;grid-template-columns:34px 1fr;gap:12px;padding-bottom:16px;position:relative}
+.item:not(:last-child)::before{content:"";position:absolute;right:16.5px;top:36px;bottom:0;width:1.5px;background:var(--line)}
+.ic{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:var(--surface-2);color:var(--ink-2);z-index:1}
+.ic.in{background:var(--accent-soft);color:var(--accent-ink)}
+.ic.out{background:var(--amber-soft);color:var(--amber)}
+.ic svg{width:16px;height:16px}
+.item .txt b{display:block;font-size:14.5px;font-weight:600}
+.item .txt span{font-size:12.5px;color:var(--ink-2)}
+.item .txt p{margin:6px 0 0;font-size:14px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 13px}
+.shots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.shots img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;background:var(--surface-2)}
+
+.bars{display:flex;flex-direction:column;gap:12px}
+.bar{display:grid;grid-template-columns:1fr 62px;gap:10px;align-items:center;font-size:13.5px}
+.bar .lbl{display:flex;flex-direction:column;gap:5px}
+.track{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden}
+.fill{height:100%;background:var(--accent);border-radius:99px;transition:width .5s}
+.bar .val{text-align:left;color:var(--ink-2)}
+.codes{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto}
+.code{display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--surface-2);border-radius:12px;padding:9px 12px;font-size:13px}
+.code b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;letter-spacing:.02em}
+.code .used{color:var(--ink-2);font-size:11.5px}
+
+nav.tabs{
+  position:fixed;bottom:0;left:0;right:0;z-index:30;
+  background:var(--surface);border-top:1px solid var(--line);
+  display:flex;padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  max-width:560px;margin:0 auto;
+}
+nav.tabs button{
+  flex:1;background:none;border:none;cursor:pointer;border-radius:12px;padding:7px 4px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--ink-2);font-weight:600;
+}
+nav.tabs button[aria-current="page"]{color:var(--accent)}
+nav.tabs svg{width:20px;height:20px}
+
+.sheet{position:fixed;inset:0;z-index:60;display:none;align-items:flex-end;justify-content:center;background:rgba(8,16,13,.5)}
+.sheet.open{display:flex}
+.sheet .panel{background:var(--surface);width:100%;max-width:560px;border-radius:24px 24px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:13px;max-height:88vh;overflow:auto}
+.sheet h3{font-size:19px}
+.toast{
+  position:fixed;top:14px;left:14px;right:14px;z-index:80;max-width:530px;margin:0 auto;
+  background:var(--ink);color:var(--ground);border-radius:16px;padding:12px 15px;
+  box-shadow:0 14px 30px -14px rgba(0,0,0,.6);
+  opacity:0;transform:translateY(-16px);transition:.28s;pointer-events:none;font-size:14px;
+}
+.toast.show{opacity:1;transform:none}
+.empty{text-align:center;color:var(--ink-2);font-size:14px;padding:26px 10px}
+.spin{width:20px;height:20px;border:2.5px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;margin:34px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2s}}
+</style>
+</head>
+<body>
+<div id="app"><div class="spin"></div></div>
+<div class="toast" id="toast"></div>
+<div class="sheet" id="sheet"><div class="panel" id="sheetPanel"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+const SUPABASE_URL = 'https://gpfczbyehgsxwsdhnrvz.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_XJaRuA9SMay-IzQGxcJg-Q_ztALOvac';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const app = document.getElementById('app');
+const toastEl = document.getElementById('toast');
+const sheet = document.getElementById('sheet');
+const sheetPanel = document.getElementById('sheetPanel');
+let toastTimer;
+
+const S = {
+  session:null, profile:null, kg:null,
+  classes:[], children:[], attendance:{}, posts:[],
+  myChildren:[], activeClass:null, tab:null, invites:[], channel:null
+};
+
+// ---------- helpers ----------
+const el = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
+const esc = (s) => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LOC = 'ar-SA-u-ca-gregory-nu-latn';
+const fmtTime = (d) => new Date(d).toLocaleTimeString(LOC,{hour:'numeric',minute:'2-digit',timeZone:'Asia/Riyadh'});
+const fmtDay  = (d) => new Date(d).toLocaleDateString(LOC,{weekday:'long',day:'numeric',month:'long',timeZone:'Asia/Riyadh'});
+const today   = () => new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});
+const initial = (n) => (n||'؟').trim().charAt(0);
+
+function toast(msg){
+  toastEl.textContent = msg; toastEl.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>toastEl.classList.remove('show'), 3000);
+}
+function openSheet(html){ sheetPanel.innerHTML = html; sheet.classList.add('open'); }
+function closeSheet(){ sheet.classList.remove('open'); sheetPanel.innerHTML=''; }
+sheet.addEventListener('click', e => { if(e.target===sheet) closeSheet(); });
+
+const ICONS = {
+  in:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>',
+  out:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>',
+  photo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.6"/><path d="m21 15-4.5-4.5L7 20"/></svg>',
+  megaphone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h3l4-4v10l-4-4H3z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>',
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v3M12 9v9M17 5v13"/></svg>',
+  exit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>'
+};
+
+// ---------- auth screen ----------
+function renderAuth(mode){
+  mode = mode || 'in';
+  app.innerHTML = '';
+  const v = el(`<div class="auth">
+    <div class="brand">
+      <div class="mark">ر</div>
+      <div><h1>روضتي</h1><p>تواصل الروضة مع أولياء الأمور</p></div>
+    </div>
+    <div class="segmented" role="tablist">
+      <button role="tab" aria-selected="${mode==='in'}" data-m="in">تسجيل الدخول</button>
+      <button role="tab" aria-selected="${mode==='up'}" data-m="up">حساب جديد</button>
+    </div>
+    <div id="msg"></div>
+    <form id="f" style="display:flex;flex-direction:column;gap:13px">
+      ${mode==='up' ? `
+      <div class="field"><label for="nm">الاسم</label><input id="nm" required placeholder="مثال: نورة الرشودي"></div>` : ''}
+      <div class="field"><label for="em">البريد الإلكتروني</label><input id="em" type="email" required autocomplete="email" placeholder="name@example.com"></div>
+      <div class="field"><label for="pw">كلمة المرور</label><input id="pw" type="password" required minlength="6" autocomplete="${mode==='up'?'new-password':'current-password'}" placeholder="٦ أحرف على الأقل"></div>
+      ${mode==='up' ? `
+      <div class="field"><label for="cd">رمز الانضمام</label><input id="cd" required placeholder="BADAIA-T1" style="text-transform:uppercase">
+        <p class="help">الرمز تعطيه لك إدارة الروضة.</p></div>` : ''}
+      <button class="btn" type="submit">${mode==='up'?'إنشاء الحساب':'دخول'}</button>
+    </form>
+  </div>`);
+  app.appendChild(v);
+
+  v.querySelectorAll('[data-m]').forEach(b => b.onclick = () => renderAuth(b.dataset.m));
+  const msg = v.querySelector('#msg');
+  v.querySelector('#f').onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; msg.innerHTML = '';
+    const email = v.querySelector('#em').value.trim();
+    const password = v.querySelector('#pw').value;
+    try{
+      if(mode==='up'){
+        const full_name = v.querySelector('#nm').value.trim();
+        const code = v.querySelector('#cd').value.trim().toUpperCase();
+        const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ full_name } } });
+        if(error) throw error;
+        if(!data.session){ msg.innerHTML = '<div class="ok">تم إنشاء الحساب. سجّل الدخول الآن.</div>'; btn.disabled=false; return; }
+        const { error: e2 } = await sb.rpc('redeem_invite', { p_code: code });
+        if(e2){
+          await sb.auth.signOut();
+          throw new Error(e2.message.includes('ALREADY_USED') ? 'هذا الرمز مستخدم من قبل.' : 'رمز الانضمام غير صحيح.');
+        }
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if(error) throw new Error('البريد أو كلمة المرور غير صحيحة.');
+      }
+      await boot();
+    }catch(err){
+      msg.innerHTML = '<div class="err">'+esc(err.message||'حدث خطأ')+'</div>';
+      btn.disabled = false;
+    }
+  };
+}
+
+function renderNeedsCode(){
+  app.innerHTML='';
+  const v = el(`<div class="auth">
+    <div class="brand"><div class="mark">ر</div><div><h1>خطوة أخيرة</h1><p>أدخل رمز الانضمام</p></div></div>
+    <div id="msg"></div>
+    <form id="f" style="display:flex;flex-direction:column;gap:13px">
+      <div class="field"><label for="cd">رمز الانضمام</label><input id="cd" required placeholder="BADAIA-T1" style="text-transform:uppercase"></div>
+      <button class="btn" type="submit">متابعة</button>
+    </form>
+    <button class="linkbtn" id="out">تسجيل الخروج</button>
+  </div>`);
+  app.appendChild(v);
+  v.querySelector('#out').onclick = async()=>{ await sb.auth.signOut(); boot(); };
+  v.querySelector('#f').onsubmit = async (e)=>{
+    e.preventDefault();
+    const btn=e.target.querySelector('button'); btn.disabled=true;
+    const { error } = await sb.rpc('redeem_invite',{ p_code: v.querySelector('#cd').value.trim().toUpperCase() });
+    if(error){ v.querySelector('#msg').innerHTML='<div class="err">رمز غير صحيح أو مستخدم.</div>'; btn.disabled=false; return; }
+    boot();
+  };
+}
+
+// ---------- data ----------
+async function loadCore(){
+  const { data: prof } = await sb.from('profiles').select('*').eq('id', S.session.user.id).single();
+  S.profile = prof;
+  if(!prof || !prof.kindergarten_id) return false;
+
+  const [kg, classes] = await Promise.all([
+    sb.from('kindergartens').select('*').eq('id', prof.kindergarten_id).single(),
+    sb.from('classes').select('*').eq('kindergarten_id', prof.kindergarten_id).order('name')
+  ]);
+  S.kg = kg.data; S.classes = classes.data || [];
+  await refresh();
+  return true;
+}
+
+async function refresh(){
+  const [ch, at, po] = await Promise.all([
+    sb.from('children').select('id,full_name,gender,class_id').eq('active', true).order('full_name'),
+    sb.from('attendance').select('*').eq('day', today()),
+    sb.from('posts').select('*').order('created_at',{ascending:false}).limit(30)
+  ]);
+  S.children = ch.data || [];
+  S.attendance = {};
+  (at.data||[]).forEach(r => S.attendance[r.child_id] = r);
+  S.posts = po.data || [];
+  if(S.profile.role === 'parent') S.myChildren = S.children;
+  if(!S.activeClass && S.classes.length) S.activeClass = S.classes[0].id;
+}
+
+function subscribe(){
+  if(S.channel) sb.removeChannel(S.channel);
+  S.channel = sb.channel('live')
+    .on('postgres_changes',{event:'*',schema:'public',table:'attendance'}, p => {
+      const r = p.new && p.new.id ? p.new : null;
+      if(r && r.day === today()){ S.attendance[r.child_id] = r; render(); }
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'posts'}, async p => {
+      if(!S.posts.find(x=>x.id===p.new.id)){ S.posts.unshift(p.new); render(); }
+    })
+    .subscribe();
+}
+
+function statusOf(childId){
+  const a = S.attendance[childId];
+  if(!a || !a.check_in_at) return {k:'out', t:null};
+  if(a.check_out_at) return {k:'left', t:a.check_out_at};
+  return {k:'in', t:a.check_in_at};
+}
+
+// ---------- staff: roster ----------
+function viewRoster(){
+  const kids = S.children.filter(c => c.class_id === S.activeClass);
+  const inN = kids.filter(k => statusOf(k.id).k==='in').length;
+  const leftN = kids.filter(k => statusOf(k.id).k==='left').length;
+
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+
+  if(S.classes.length > 1){
+    const chips = el('<div class="chips"></div>');
+    S.classes.forEach(c => {
+      const b = el(`<button class="chip" aria-pressed="${c.id===S.activeClass}">${esc(c.name)}</button>`);
+      b.onclick = () => { S.activeClass = c.id; render(); };
+      chips.appendChild(b);
+    });
+    wrap.appendChild(chips);
+  }
+
+  wrap.appendChild(el(`<div class="counter">
+    <div class="pill ok"><b class="num">${inN}</b><span>في الروضة</span></div>
+    <div class="pill left"><b class="num">${leftN}</b><span>غادر</span></div>
+    <div class="pill no"><b class="num">${kids.length-inN-leftN}</b><span>لم يصل</span></div>
+  </div>`));
+
+  const roster = el('<div class="roster"></div>');
+  if(!kids.length) roster.appendChild(el('<div class="empty">لا يوجد أطفال في هذا الفصل.</div>'));
+  kids.forEach(k => {
+    const st = statusOf(k.id);
+    const label = st.k==='in' ? 'وصل ' + fmtTime(st.t)
+                : st.k==='left' ? 'غادر ' + fmtTime(st.t)
+                : 'لم يصل بعد';
+    const b = el(`<button class="kid ${st.k==='out'?'':st.k}">
+      <span class="avatar" style="width:34px;height:34px;border-radius:12px;font-size:14px">${esc(initial(k.full_name))}</span>
+      <span class="nm"><b>${esc(k.full_name)}</b><span>${label}</span></span>
+      <span class="check">${ICONS.check}</span>
+    </button>`);
+    b.onclick = async () => {
+      b.classList.add('busy');
+      const { data, error } = await sb.rpc('toggle_attendance', { p_child: k.id });
+      b.classList.remove('busy');
+      if(error){ toast('تعذّر التسجيل. حاول مرة أخرى.'); return; }
+      S.attendance[k.id] = data;
+      const s2 = statusOf(k.id);
+      toast(s2.k==='in' ? 'تم تسجيل وصول ' + k.full_name.split(' ')[0] + ' — أُشعر ولي الأمر'
+          : s2.k==='left' ? 'تم تسجيل مغادرة ' + k.full_name.split(' ')[0]
+          : 'تم إلغاء التسجيل');
+      render();
+    };
+    roster.appendChild(b);
+  });
+  wrap.appendChild(roster);
+
+  const acts = el('<div style="display:flex;flex-direction:column;gap:9px"></div>');
+  const a1 = el(`<button class="btn">${ICONS.photo} نشر نشاط وصور</button>`);
+  a1.onclick = () => composer('activity');
+  const a2 = el(`<button class="btn ghost">${ICONS.megaphone} إرسال إعلان</button>`);
+  a2.onclick = () => composer('announcement');
+  acts.append(a1,a2);
+  wrap.appendChild(acts);
+  return wrap;
+}
+
+function composer(kind){
+  const isAct = kind==='activity';
+  openSheet(`
+    <h3>${isAct?'نشر نشاط':'إرسال إعلان'}</h3>
+    <div class="field">
+      <label for="bd">${isAct?'ماذا فعل الأطفال؟':'نص الإعلان'}</label>
+      <textarea id="bd" rows="3" placeholder="${isAct?'مثال: الرسم بألوان الماء':'مثال: رحلة مزرعة النخيل يوم الأربعاء'}"></textarea>
+    </div>
+    <div class="field">
+      <label for="sc">يظهر لـ</label>
+      <select id="sc">
+        <option value="">كل أولياء الأمور في الروضة</option>
+        ${S.classes.map(c=>`<option value="${c.id}" ${c.id===S.activeClass?'selected':''}>فصل ${esc(c.name)}</option>`).join('')}
+      </select>
+    </div>
+    ${isAct?`<div class="field"><label for="ph">الصور (اختياري)</label><input id="ph" type="file" accept="image/*" multiple></div>`:''}
+    <div id="cmsg"></div>
+    <button class="btn" id="send">نشر</button>
+    <button class="btn ghost sm" id="cancel">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#cancel').onclick = closeSheet;
+  sheetPanel.querySelector('#send').onclick = async () => {
+    const body = sheetPanel.querySelector('#bd').value.trim();
+    if(!body){ sheetPanel.querySelector('#cmsg').innerHTML='<div class="err">اكتب النص أولًا.</div>'; return; }
+    const btn = sheetPanel.querySelector('#send'); btn.disabled = true; btn.textContent = 'جارٍ النشر…';
+    const class_id = sheetPanel.querySelector('#sc').value || null;
+    const paths = [];
+    try{
+      const files = isAct ? Array.from(sheetPanel.querySelector('#ph').files||[]) : [];
+      for(const f of files.slice(0,6)){
+        const path = `${S.kg.id}/${crypto.randomUUID()}-${f.name.replace(/[^\w.\-]/g,'_')}`;
+        const { error } = await sb.storage.from('photos').upload(path, f, { upsert:false });
+        if(error) throw error;
+        paths.push(path);
+      }
+      const { data, error } = await sb.from('posts').insert({
+        kindergarten_id: S.kg.id, class_id, author_id: S.profile.id,
+        kind, body, photo_paths: paths
+      }).select().single();
+      if(error) throw error;
+      if(!S.posts.find(p=>p.id===data.id)) S.posts.unshift(data);
+      closeSheet(); toast(isAct?'تم نشر النشاط':'تم إرسال الإعلان'); render();
+    }catch(err){
+      sheetPanel.querySelector('#cmsg').innerHTML = '<div class="err">تعذّر النشر: '+esc(err.message)+'</div>';
+      btn.disabled=false; btn.textContent='نشر';
+    }
+  };
+}
+
+// ---------- parent ----------
+function viewParent(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+  if(!S.myChildren.length){
+    wrap.appendChild(el('<div class="empty">لم يتم ربط حسابك بطفل بعد. راجع إدارة الروضة.</div>'));
+    return wrap;
+  }
+  S.myChildren.forEach(c => {
+    const st = statusOf(c.id);
+    const cls = S.classes.find(x=>x.id===c.class_id);
+    const txt = st.k==='in' ? esc(c.full_name.split(' ')[0]) + ' في الروضة الآن'
+              : st.k==='left' ? esc(c.full_name.split(' ')[0]) + ' غادر الروضة'
+              : esc(c.full_name.split(' ')[0]) + ' لم يصل بعد';
+    const sub = st.t ? (st.k==='in'?'الوصول ':'المغادرة ') + fmtTime(st.t)
+                     : 'لا يوجد تسجيل اليوم · ' + fmtDay(new Date());
+    wrap.appendChild(el(`<div class="hero ${st.k==='in'?'':st.k}">
+      <div class="st"><span class="dot"></span><span>${txt}</span></div>
+      <small>${esc(sub)}${cls?' · فصل '+esc(cls.name):''}</small>
+    </div>`));
+  });
+  wrap.appendChild(buildFeed());
+  return wrap;
+}
+
+function buildFeed(){
+  const items = [];
+  const mine = S.profile.role==='parent' ? S.myChildren : S.children.filter(c=>c.class_id===S.activeClass);
+  mine.forEach(c => {
+    const a = S.attendance[c.id];
+    if(a && a.check_in_at) items.push({t:a.check_in_at, kind:'in', title:'وصل '+c.full_name.split(' ')[0]+' إلى الروضة', sub:fmtTime(a.check_in_at)});
+    if(a && a.check_out_at) items.push({t:a.check_out_at, kind:'out', title:'غادر '+c.full_name.split(' ')[0]+' الروضة', sub:fmtTime(a.check_out_at)});
+  });
+  S.posts.forEach(p => items.push({
+    t:p.created_at, kind:p.kind==='activity'?'photo':'megaphone',
+    title:p.kind==='activity'?'نشاط جديد':'إعلان من الإدارة',
+    sub:fmtTime(p.created_at), body:p.body, photos:p.photo_paths||[]
+  }));
+  items.sort((a,b)=> new Date(b.t)-new Date(a.t));
+
+  const feed = el('<div class="feed"></div>');
+  if(!items.length){ feed.appendChild(el('<div class="empty">لا توجد أخبار بعد اليوم.</div>')); return feed; }
+  items.slice(0,25).forEach(it => {
+    const icCls = it.kind==='in'?'in':it.kind==='out'?'out':'';
+    const node = el(`<div class="item">
+      <div class="ic ${icCls}">${ICONS[it.kind]||ICONS.photo}</div>
+      <div class="txt"><b>${esc(it.title)}</b><span>${esc(it.sub)}</span>
+        ${it.body?'<p>'+esc(it.body)+'</p>':''}
+        ${it.photos&&it.photos.length?'<div class="shots"></div>':''}
+      </div>
+    </div>`);
+    feed.appendChild(node);
+    if(it.photos && it.photos.length){
+      const box = node.querySelector('.shots');
+      sb.storage.from('photos').createSignedUrls(it.photos, 3600).then(({data})=>{
+        (data||[]).forEach(u => { if(u.signedUrl) box.appendChild(el(`<img loading="lazy" alt="صورة من النشاط" src="${u.signedUrl}">`)); });
+      });
+    }
+  });
+  return feed;
+}
+
+// ---------- admin ----------
+function viewAdmin(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+  const total = S.children.length;
+  const inN = S.children.filter(c=>statusOf(c.id).k==='in').length;
+  const leftN = S.children.filter(c=>statusOf(c.id).k==='left').length;
+
+  wrap.appendChild(el(`<div class="counter">
+    <div class="pill"><b class="num">${total}</b><span>إجمالي الأطفال</span></div>
+    <div class="pill ok"><b class="num">${inN}</b><span>في الروضة</span></div>
+    <div class="pill left"><b class="num">${leftN}</b><span>غادر</span></div>
+    <div class="pill no"><b class="num">${total-inN-leftN}</b><span>لم يصل</span></div>
+  </div>`));
+
+  const bars = el('<div class="card"><h3 style="font-size:16px">الحضور حسب الفصل</h3><div class="bars"></div></div>');
+  const bx = bars.querySelector('.bars');
+  S.classes.forEach(c => {
+    const kids = S.children.filter(k=>k.class_id===c.id);
+    const p = kids.filter(k=>statusOf(k.id).k!=='out').length;
+    const pct = kids.length ? Math.round(p/kids.length*100) : 0;
+    bx.appendChild(el(`<div class="bar">
+      <div class="lbl"><span>فصل ${esc(c.name)}</span><span class="track"><span class="fill" style="width:${pct}%"></span></span></div>
+      <span class="val num">${p}/${kids.length}</span>
+    </div>`));
+  });
+  wrap.appendChild(bars);
+
+  const codes = el(`<div class="card">
+    <h3 style="font-size:16px">رموز الانضمام</h3>
+    <p class="help">كل رمز يُستخدم مرة واحدة. رموز أولياء الأمور مرتبطة بطفل محدد.</p>
+    <div class="codes"></div>
+    <button class="btn ghost sm" id="reloadCodes">تحديث</button>
+  </div>`);
+  const cx = codes.querySelector('.codes');
+  const paint = () => {
+    cx.innerHTML='';
+    if(!S.invites.length){ cx.appendChild(el('<div class="empty">لا توجد رموز.</div>')); return; }
+    S.invites.forEach(i => {
+      const child = S.children.find(c=>c.id===i.child_id);
+      cx.appendChild(el(`<div class="code">
+        <b>${esc(i.code)}</b>
+        <span class="used">${i.used_at?'مستخدم':(child?esc(child.full_name):esc(i.label||i.role))}</span>
+      </div>`));
+    });
+  };
+  codes.querySelector('#reloadCodes').onclick = async()=>{ await loadInvites(); paint(); };
+  paint();
+  wrap.appendChild(codes);
+  return wrap;
+}
+
+async function loadInvites(){
+  const { data } = await sb.from('invites').select('*').order('used_at',{nullsFirst:true}).order('code').limit(200);
+  S.invites = data || [];
+}
+
+// ---------- shell ----------
+function render(){
+  const staff = S.profile.role==='admin' || S.profile.role==='teacher';
+  const tabs = staff
+    ? [{k:'roster',l:'الفصل',i:'users'}, {k:'feed',l:'الأخبار',i:'home'}].concat(S.profile.role==='admin'?[{k:'admin',l:'الإدارة',i:'chart'}]:[])
+    : [{k:'home',l:'طفلي',i:'home'}];
+  if(!S.tab || !tabs.find(t=>t.k===S.tab)) S.tab = tabs[0].k;
+
+  app.innerHTML = '';
+  const cls = S.classes.find(c=>c.id===S.activeClass);
+  const sub = staff ? (S.tab==='roster'&&cls ? 'فصل '+cls.name+' · '+fmtDay(new Date()) : fmtDay(new Date())) : fmtDay(new Date());
+
+  const top = el(`<div class="topbar">
+    <div class="who"><b>${esc(S.kg?S.kg.name:'روضتي')}</b><span>${esc(sub)}</span></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="avatar">${esc(initial(S.profile.full_name))}</div>
+      <button class="iconbtn" id="logout" aria-label="تسجيل الخروج">${ICONS.exit}</button>
+    </div>
+  </div>`);
+  top.querySelector('#logout').onclick = async()=>{ if(S.channel) sb.removeChannel(S.channel); await sb.auth.signOut(); location.reload(); };
+  app.appendChild(top);
+
+  const main = el('<main></main>');
+  if(S.tab==='roster') main.appendChild(viewRoster());
+  else if(S.tab==='admin') main.appendChild(viewAdmin());
+  else if(S.tab==='feed') main.appendChild(buildFeed());
+  else main.appendChild(viewParent());
+  app.appendChild(main);
+
+  if(tabs.length>1){
+    const nav = el('<nav class="tabs"></nav>');
+    tabs.forEach(t=>{
+      const b = el(`<button ${S.tab===t.k?'aria-current="page"':''}>${ICONS[t.i]}<span>${t.l}</span></button>`);
+      b.onclick = async ()=>{ S.tab=t.k; if(t.k==='admin'&&!S.invites.length) await loadInvites(); render(); };
+      nav.appendChild(b);
+    });
+    app.appendChild(nav);
+  }
+}
+
+// ---------- boot ----------
+async function boot(){
+  app.innerHTML = '<div class="spin"></div>';
+  const { data } = await sb.auth.getSession();
+  S.session = data.session;
+  if(!S.session){ renderAuth('in'); return; }
+  const ready = await loadCore();
+  if(!ready){ renderNeedsCode(); return; }
+  subscribe();
+  render();
+  setInterval(async()=>{ if(S.session && document.visibilityState==='visible'){ await refresh(); render(); } }, 60000);
+}
+document.addEventListener('visibilitychange', async ()=>{
+  if(document.visibilityState==='visible' && S.session && S.profile && S.kg){ await refresh(); render(); }
+});
+boot();
+</script>
+</body>
+</html>
