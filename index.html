@@ -215,7 +215,7 @@ let toastTimer;
 const S = {
   session:null, profile:null, kg:null,
   classes:[], children:[], attendance:{}, posts:[],
-  myChildren:[], activeClass:null, tab:null, invites:[], channel:null
+  myChildren:[], activeClass:null, tab:null, invites:[], channel:null, linked:new Set()
 };
 
 // ---------- helpers ----------
@@ -354,6 +354,10 @@ async function refresh(){
   (at.data||[]).forEach(r => S.attendance[r.child_id] = r);
   S.posts = po.data || [];
   if(S.profile.role === 'parent') S.myChildren = S.children;
+  if(S.profile.role !== 'parent'){
+    const { data: lk } = await sb.rpc('children_with_push');
+    S.linked = new Set((lk || []).map(r => (typeof r === 'string' ? r : r.children_with_push)));
+  }
   if(!S.activeClass && S.classes.length) S.activeClass = S.classes[0].id;
 }
 
@@ -410,18 +414,19 @@ function viewRoster(){
                 : 'لم يصل بعد';
     const b = el(`<button class="kid ${st.k==='out'?'':st.k}">
       <span class="avatar" style="width:34px;height:34px;border-radius:12px;font-size:14px">${esc(initial(k.full_name))}</span>
-      <span class="nm"><b>${esc(k.full_name)}</b><span>${label}</span></span>
+      <span class="nm"><b>${esc(k.full_name)}${S.linked.has(k.id) ? ' <span title="ولي الأمر مشترك في الإشعارات" style="font-size:12px">🔔</span>' : ''}</b><span>${label}</span></span>
       <span class="check">${ICONS.check}</span>
     </button>`);
     b.onclick = async () => {
       b.classList.add('busy');
       const { data, error } = await sb.rpc('toggle_attendance', { p_child: k.id });
       b.classList.remove('busy');
-      if(error){ toast('تعذّر التسجيل. حاول مرة أخرى.'); return; }
+      if(error){ toast('تعذّر التسجيل: ' + (error.message || 'خطأ غير معروف')); return; }
       S.attendance[k.id] = data;
       const s2 = statusOf(k.id);
       if(s2.k !== 'out') notifyServer({ type:'attendance', child_id: k.id });
-      toast(s2.k==='in' ? 'تم تسجيل وصول ' + k.full_name.split(' ')[0] + ' — أُشعر ولي الأمر'
+      const notified = S.linked.has(k.id) ? ' — أُشعر ولي الأمر' : '';
+      toast(s2.k==='in' ? 'تم تسجيل وصول ' + k.full_name.split(' ')[0] + notified
           : s2.k==='left' ? 'تم تسجيل مغادرة ' + k.full_name.split(' ')[0]
           : 'تم إلغاء التسجيل');
       render();
@@ -599,6 +604,28 @@ function viewAdmin(){
   codes.querySelector('#reloadCodes').onclick = async()=>{ await loadInvites(); paint(); };
   paint();
   wrap.appendChild(codes);
+
+  const test = el(`<div class="card">
+    <h3 style="font-size:16px">فحص الإشعارات</h3>
+    <p class="help">يرسل إشعارًا تجريبيًا لكل جهاز مُفعَّل في الروضة. استخدمه للتأكد أن الإشعارات تعمل.</p>
+    <div id="tres"></div>
+    <button class="btn ghost sm" id="sendTest">إرسال إشعار تجريبي</button>
+  </div>`);
+  test.querySelector('#sendTest').onclick = async (e) => {
+    const b = e.target; b.disabled = true; b.textContent = 'جارٍ الإرسال…';
+    const box = test.querySelector('#tres');
+    try{
+      const { data, error } = await sb.functions.invoke('notify', { body:{ type:'test' } });
+      if(error) throw error;
+      box.innerHTML = data && data.sent
+        ? '<div class="ok">تم الإرسال إلى ' + data.sent + ' جهاز.</div>'
+        : '<div class="err">لا توجد أجهزة مفعّلة بعد. افتح التطبيق بحساب ولي أمر واضغط «تفعيل».</div>';
+    }catch(err){
+      box.innerHTML = '<div class="err">فشل الإرسال: ' + esc(err.message || String(err)) + '</div>';
+    }
+    b.disabled = false; b.textContent = 'إرسال إشعار تجريبي';
+  };
+  wrap.appendChild(test);
   return wrap;
 }
 
