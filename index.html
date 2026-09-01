@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1E6B5C">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="روضتي">
 <title>روضتي</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -171,6 +177,18 @@ nav.tabs svg{width:20px;height:20px}
   opacity:0;transform:translateY(-16px);transition:.28s;pointer-events:none;font-size:14px;
 }
 .toast.show{opacity:1;transform:none}
+.notif{
+  display:flex;align-items:center;gap:12px;
+  background:var(--amber-soft);border-radius:18px;padding:13px 15px;
+}
+.notif .t{flex:1;min-width:0}
+.notif .t b{display:block;font-size:14px}
+.notif .t span{font-size:12.5px;color:var(--ink-2)}
+.notif button{
+  border:none;border-radius:12px;padding:9px 14px;cursor:pointer;flex:none;
+  background:var(--amber);color:var(--on-accent);font-weight:600;font-size:13.5px;font-family:inherit;
+}
+.notif.info{background:var(--surface-2)}
 .empty{text-align:center;color:var(--ink-2);font-size:14px;padding:26px 10px}
 .spin{width:20px;height:20px;border:2.5px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;margin:34px auto}
 @keyframes sp{to{transform:rotate(360deg)}}
@@ -402,6 +420,7 @@ function viewRoster(){
       if(error){ toast('تعذّر التسجيل. حاول مرة أخرى.'); return; }
       S.attendance[k.id] = data;
       const s2 = statusOf(k.id);
+      if(s2.k !== 'out') notifyServer({ type:'attendance', child_id: k.id });
       toast(s2.k==='in' ? 'تم تسجيل وصول ' + k.full_name.split(' ')[0] + ' — أُشعر ولي الأمر'
           : s2.k==='left' ? 'تم تسجيل مغادرة ' + k.full_name.split(' ')[0]
           : 'تم إلغاء التسجيل');
@@ -462,6 +481,7 @@ function composer(kind){
       }).select().single();
       if(error) throw error;
       if(!S.posts.find(p=>p.id===data.id)) S.posts.unshift(data);
+      notifyServer({ type:'post', post_id: data.id });
       closeSheet(); toast(isAct?'تم نشر النشاط':'تم إرسال الإعلان'); render();
     }catch(err){
       sheetPanel.querySelector('#cmsg').innerHTML = '<div class="err">تعذّر النشر: '+esc(err.message)+'</div>';
@@ -610,6 +630,8 @@ function render(){
   app.appendChild(top);
 
   const main = el('<main></main>');
+  const banner = pushBanner();
+  if(banner) main.appendChild(banner);
   if(S.tab==='roster') main.appendChild(viewRoster());
   else if(S.tab==='admin') main.appendChild(viewAdmin());
   else if(S.tab==='feed') main.appendChild(buildFeed());
@@ -627,6 +649,95 @@ function render(){
   }
 }
 
+// ---------- push notifications ----------
+const VAPID_PUBLIC = 'BNqCBI2yu25gyEKTWJ-7EumIBd7-ggybkflelEWHougONUbkkF1t6HJ2xpNCPTWMt9k6BgsXEaxSN4tGh3ic3U0';
+
+function b64ToBytes(b64){
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g,'+').replace(/_/g,'/'));
+  const out = new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+async function registerSW(){
+  if(!('serviceWorker' in navigator)) return null;
+  try { return await navigator.serviceWorker.register('sw.js'); } catch(e){ return null; }
+}
+
+async function enablePush(){
+  if(!pushSupported) throw new Error('متصفحك لا يدعم الإشعارات.');
+  const reg = await registerSW();
+  if(!reg) throw new Error('تعذّر تشغيل خدمة الإشعارات.');
+  await navigator.serviceWorker.ready;
+  const perm = await Notification.requestPermission();
+  if(perm !== 'granted') throw new Error('لم يتم السماح بالإشعارات من إعدادات المتصفح.');
+  let sub = await reg.pushManager.getSubscription();
+  if(!sub){
+    sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToBytes(VAPID_PUBLIC) });
+  }
+  const j = sub.toJSON();
+  const { error } = await sb.from('push_subscriptions').upsert({
+    profile_id: S.profile.id, endpoint: j.endpoint,
+    p256dh: j.keys.p256dh, auth: j.keys.auth, user_agent: navigator.userAgent
+  }, { onConflict: 'endpoint' });
+  if(error) throw new Error('تعذّر حفظ الاشتراك.');
+  S.pushOn = true;
+}
+
+function notifyServer(payload){
+  sb.functions.invoke('notify', { body: payload }).catch(()=>{});
+}
+
+function pushBanner(){
+  if(!pushSupported){
+    if(isIOS && !isStandalone){
+      return el(`<div class="notif info">
+        <div class="t"><b>فعّل الإشعارات</b><span>افتح قائمة المشاركة ثم «إضافة إلى الشاشة الرئيسية»، وشغّل التطبيق من هناك.</span></div>
+      </div>`);
+    }
+    return null;
+  }
+  if(Notification.permission === 'granted' && S.pushOn) return null;
+  if(Notification.permission === 'denied'){
+    return el(`<div class="notif info">
+      <div class="t"><b>الإشعارات موقوفة</b><span>فعّلها من إعدادات المتصفح لهذا الموقع.</span></div>
+    </div>`);
+  }
+  if(isIOS && !isStandalone){
+    return el(`<div class="notif info">
+      <div class="t"><b>فعّل الإشعارات</b><span>افتح قائمة المشاركة ثم «إضافة إلى الشاشة الرئيسية»، وشغّل التطبيق من هناك.</span></div>
+    </div>`);
+  }
+  const n = el(`<div class="notif">
+    <div class="t"><b>فعّل إشعارات الهاتف</b><span>ليصلك تنبيه فور وصول طفلك أو نشر نشاط.</span></div>
+    <button type="button">تفعيل</button>
+  </div>`);
+  n.querySelector('button').onclick = async (e) => {
+    e.target.disabled = true; e.target.textContent = '…';
+    try { await enablePush(); toast('تم تفعيل الإشعارات'); render(); }
+    catch(err){ toast(err.message); e.target.disabled=false; e.target.textContent='تفعيل'; }
+  };
+  return n;
+}
+
+async function checkPushState(){
+  if(!pushSupported || Notification.permission !== 'granted'){ S.pushOn = false; return; }
+  const reg = await registerSW();
+  if(!reg){ S.pushOn = false; return; }
+  const sub = await reg.pushManager.getSubscription();
+  if(!sub){ S.pushOn = false; return; }
+  const j = sub.toJSON();
+  await sb.from('push_subscriptions').upsert({
+    profile_id: S.profile.id, endpoint: j.endpoint,
+    p256dh: j.keys.p256dh, auth: j.keys.auth, user_agent: navigator.userAgent
+  }, { onConflict: 'endpoint' });
+  S.pushOn = true;
+}
+
 // ---------- boot ----------
 async function boot(){
   app.innerHTML = '<div class="spin"></div>';
@@ -636,6 +747,7 @@ async function boot(){
   const ready = await loadCore();
   if(!ready){ renderNeedsCode(); return; }
   subscribe();
+  await checkPushState();
   render();
   setInterval(async()=>{ if(S.session && document.visibilityState==='visible'){ await refresh(); render(); } }, 60000);
 }
