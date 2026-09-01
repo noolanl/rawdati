@@ -215,7 +215,7 @@ let toastTimer;
 const S = {
   session:null, profile:null, kg:null,
   classes:[], children:[], attendance:{}, posts:[],
-  myChildren:[], activeClass:null, tab:null, invites:[], channel:null, linked:new Set()
+  myChildren:[], activeClass:null, tab:null, invites:[], people:{}, channel:null, linked:new Set()
 };
 
 // ---------- helpers ----------
@@ -593,11 +593,20 @@ function viewAdmin(){
   const paint = () => {
     cx.innerHTML='';
     if(!S.invites.length){ cx.appendChild(el('<div class="empty">لا توجد رموز.</div>')); return; }
+    const roleName = { admin:'مديرة الروضة', teacher:'معلمة', parent:'ولي أمر' };
     S.invites.forEach(i => {
-      const child = S.children.find(c=>c.id===i.child_id);
+      const child = S.children.find(c => c.id === i.child_id);
+      const forWhom = child ? child.full_name : (roleName[i.role] || i.role);
+      const person = i.used_by ? S.people[i.used_by] : null;
+      const status = i.used_at
+        ? (person && person.full_name ? 'سجّل: ' + person.full_name : 'مستخدم')
+        : 'متاح';
       cx.appendChild(el(`<div class="code">
-        <b>${esc(i.code)}</b>
-        <span class="used">${i.used_at?'مستخدم':(child?esc(child.full_name):esc(i.label||i.role))}</span>
+        <span style="display:flex;flex-direction:column;gap:1px;min-width:0">
+          <b>${esc(i.code)}</b>
+          <span class="used">${esc(forWhom)}</span>
+        </span>
+        <span class="used" style="flex:none;text-align:left;${i.used_at?'':'opacity:.65'}">${esc(status)}</span>
       </div>`));
     });
   };
@@ -630,8 +639,13 @@ function viewAdmin(){
 }
 
 async function loadInvites(){
-  const { data } = await sb.from('invites').select('*').order('used_at',{nullsFirst:true}).order('code').limit(200);
-  S.invites = data || [];
+  const [inv, prof] = await Promise.all([
+    sb.from('invites').select('*').order('used_at',{nullsFirst:true}).order('code').limit(300),
+    sb.from('profiles').select('id,full_name,role')
+  ]);
+  S.invites = inv.data || [];
+  S.people = {};
+  (prof.data || []).forEach(p => { S.people[p.id] = p; });
 }
 
 // ---------- shell ----------
