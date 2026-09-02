@@ -1136,9 +1136,13 @@ function adminOverview(){
 /* ---------- children ---------- */
 function adminChildren(){
   const wrap = el('<div style="display:flex;flex-direction:column;gap:12px"></div>');
-  const addBtn = el('<button class="btn">إضافة طفل</button>');
+  const bar = el('<div class="actions2"></div>');
+  const addBtn = el('<button class="btn sm">إضافة طفل</button>');
   addBtn.onclick = addChildSheet;
-  wrap.appendChild(addBtn);
+  const impBtn = el('<button class="btn blue sm">استيراد قائمة</button>');
+  impBtn.onclick = importSheet;
+  bar.append(addBtn, impBtn);
+  wrap.appendChild(bar);
 
   const search = el(`<div class="field"><input id="q" placeholder="ابحث بالاسم…" value="${esc(S.childQuery)}"></div>`);
   wrap.appendChild(search);
@@ -1202,6 +1206,98 @@ function addChildSheet(){
       <button class="btn" id="cdone">تم</button>`);
     sheetPanel.querySelector('#cp').onclick = (e)=>copyText(row.code, e.target);
     sheetPanel.querySelector('#cdone').onclick = ()=>{ closeSheet(); render(); };
+  };
+}
+
+// CSV or pasted rows: الاسم , الفصل , الجنس
+function parseRows(text){
+  const lines = String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if(!lines.length) return [];
+  const split = (l) => l.includes('\t') ? l.split('\t') : l.split(',');
+  let cols = split(lines[0]).map(x=>x.trim());
+  let start = 0, idx = { name:0, cls:1, gender:2 };
+  const looksLikeHeader = cols.some(c => /^(الاسم|اسم|name|الطفل)$/i.test(c));
+  if(looksLikeHeader){
+    start = 1;
+    cols.forEach((c,i) => {
+      if(/^(الاسم|اسم|name|الطفل)$/i.test(c)) idx.name = i;
+      else if(/^(الفصل|الصف|class|group)$/i.test(c)) idx.cls = i;
+      else if(/^(الجنس|النوع|gender|sex)$/i.test(c)) idx.gender = i;
+    });
+  }
+  const out = [];
+  for(let i=start;i<lines.length;i++){
+    const p = split(lines[i]).map(x=>x.trim());
+    const name = (p[idx.name]||'').trim();
+    if(!name) continue;
+    const graw = (p[idx.gender]||'').trim();
+    const gender = /^(m|ذكر|ولد|بنين)$/i.test(graw) ? 'm' : 'f';
+    out.push({ name, class: (p[idx.cls]||'').trim(), gender });
+  }
+  return out;
+}
+
+function importSheet(){
+  openSheet(`
+    <h3>استيراد قائمة الأطفال</h3>
+    <p class="help">الأعمدة: الاسم، الفصل، الجنس (ذكر/أنثى). الفصول غير الموجودة تُنشأ تلقائيًا، ويُصدَر لكل طفل رمز ولي أمر.</p>
+    <div class="field"><label for="if">ملف CSV</label><input id="if" type="file" accept=".csv,text/csv,text/plain"></div>
+    <div class="field"><label for="it">أو الصق الصفوف هنا</label>
+      <textarea id="it" rows="5" placeholder="الاسم,الفصل,الجنس&#10;لمى العتيبي,الفراشات,أنثى&#10;تركي الحربي,النحل,ذكر"></textarea></div>
+    <div id="iprev"></div>
+    <div id="imsg"></div>
+    <button class="btn" id="igo">معاينة</button>
+    <button class="btn soft sm" id="ix">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#ix').onclick = closeSheet;
+
+  sheetPanel.querySelector('#if').onchange = async (e) => {
+    const f = e.target.files[0]; if(!f) return;
+    sheetPanel.querySelector('#it').value = await f.text();
+  };
+
+  sheetPanel.querySelector('#igo').onclick = async (e) => {
+    const rows = parseRows(sheetPanel.querySelector('#it').value);
+    const prev = sheetPanel.querySelector('#iprev');
+    const msg = sheetPanel.querySelector('#imsg');
+    if(!rows.length){ msg.innerHTML = '<div class="err">لم يُقرأ أي صف.</div>'; return; }
+
+    if(e.target.textContent === 'معاينة'){
+      const classes = Array.from(new Set(rows.map(r=>r.class).filter(Boolean)));
+      const known = classes.filter(c => S.classes.some(x=>x.name===c));
+      const isNew = classes.filter(c => !known.includes(c));
+      prev.innerHTML = `<div class="ok">${rows.length} طفل جاهز للاستيراد.</div>` +
+        (isNew.length ? `<p class="help">فصول ستُنشأ: ${esc(isNew.join('، '))}</p>` : '') +
+        `<div class="tblwrap"><table class="tbl"><thead><tr><th>الاسم</th><th>الفصل</th><th>الجنس</th></tr></thead><tbody>` +
+        rows.slice(0,8).map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.class||'—')}</td><td>${r.gender==='m'?'ذكر':'أنثى'}</td></tr>`).join('') +
+        `</tbody></table></div>` + (rows.length>8 ? `<p class="help">…و${rows.length-8} صفًا آخر.</p>` : '');
+      e.target.textContent = 'استيراد ' + rows.length + ' طفل';
+      return;
+    }
+
+    e.target.disabled = true; e.target.textContent = 'جارٍ الاستيراد…';
+    const r = await safe(sb.rpc('add_children_bulk', { p_rows: rows }));
+    if(!r || !r.data){
+      msg.innerHTML = '<div class="err">تعذّر الاستيراد — تأكد من تشغيل تحديث قاعدة البيانات.</div>';
+      e.target.disabled = false; e.target.textContent = 'استيراد'; return;
+    }
+    const made = r.data;
+    await refresh(); await loadInvites();
+    openSheet(`<h3>تم استيراد ${made.length} طفل</h3>
+      <p class="help">هذه رموز أولياء الأمور. كل رمز يصلح لأربعة أشخاص.</p>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>الطفل</th><th>الفصل</th><th>الرمز</th></tr></thead>
+      <tbody>${made.map(x=>`<tr><td>${esc(x.full_name)}</td><td>${esc(x.class_name||'—')}</td><td>${esc(x.code)}</td></tr>`).join('')}</tbody></table></div>
+      <button class="btn" id="idl">تنزيل الرموز CSV</button>
+      <button class="btn soft sm" id="idone">تم</button>`);
+    sheetPanel.querySelector('#idl').onclick = () => {
+      const head = 'الطفل,الفصل,رمز ولي الأمر\n';
+      const body = made.map(x=>[x.full_name, x.class_name||'', x.code].join(',')).join('\n');
+      const blob = new Blob(['﻿'+head+body], {type:'text/csv;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'parent-codes.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+    sheetPanel.querySelector('#idone').onclick = ()=>{ closeSheet(); render(); };
   };
 }
 
@@ -1538,6 +1634,28 @@ function adminReports(){
     box.innerHTML = `<p class="help">${done} من ${withG.length} طفل لديهم موافقة مسجّلة.</p>` +
       (missing.length ? '<p class="help">بدون موافقة: ' + esc(missing.slice(0,12).join('، ')) + '</p>' : '');
   });
+
+  // full data export — the kindergarten owns its own records
+  const ex = el(`<div class="card"><h3>تصدير بيانات الروضة</h3>
+    <p class="help">ملف واحد يحتوي الأطفال والفصول وأولياء الأمور والحضور والغياب والأنشطة. الصور نفسها تبقى في التطبيق.</p>
+    <div id="exout"></div>
+    <button class="btn soft sm" id="exgo">تصدير الآن</button></div>`);
+  ex.querySelector('#exgo').onclick = async (e) => {
+    const b = e.target; b.disabled = true; b.textContent = 'جارٍ التصدير…';
+    const r = await safe(sb.rpc('export_kindergarten'));
+    if(!r || !r.data){
+      ex.querySelector('#exout').innerHTML = '<div class="err">غير متاح بعد — شغّل تحديث قاعدة البيانات.</div>';
+      b.disabled = false; b.textContent = 'تصدير الآن'; return;
+    }
+    const blob = new Blob([JSON.stringify(r.data, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `kindergarten-export-${today()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    ex.querySelector('#exout').innerHTML = '<div class="ok">تم تنزيل الملف.</div>';
+    b.disabled = false; b.textContent = 'تصدير الآن';
+  };
+  wrap.appendChild(ex);
 
   // photo retention
   const rt = el(`<div class="card"><h3>الاحتفاظ بالصور</h3>
