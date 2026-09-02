@@ -1332,7 +1332,7 @@ function childSheet(c){
       const r = el(`<button class="row"><span class="face">${esc(initial(g.full_name))}</span>
         <span class="nm"><b>${esc(g.full_name||'—')}</b><span>${esc(g.phone||'')}</span></span>
         <span class="tagx">كلمة المرور</span></button>`);
-      r.onclick = () => g.id ? resetPasswordFor(g.id, g.full_name) : toast('حدّث قاعدة البيانات أولًا');
+      r.onclick = () => g.id ? guardianSheet(c, g) : toast('حدّث قاعدة البيانات أولًا');
       lx.appendChild(r);
     });
     box.appendChild(lx);
@@ -1424,7 +1424,7 @@ function adminStaff(){
       <span class="nm"><b>${esc(p.full_name||'—')}</b><span>${esc(p.phone||'')}</span></span>
       <span class="tagx ${p.role==='admin'?'full':''}">${p.role==='admin'?'مديرة':'معلمة'}</span>
     </button>`);
-    r.onclick = () => resetPasswordFor(p.id, p.full_name);
+    r.onclick = () => staffSheet(p);
     list.appendChild(r);
   });
   if(!S.staff.length) list.appendChild(el('<div class="empty">لا توجد حسابات بعد.</div>'));
@@ -1674,6 +1674,30 @@ function adminReports(){
   return wrap;
 }
 
+function staffSheet(p){
+  const self = S.profile && p.id === S.profile.id;
+  openSheet(`
+    <h3>${esc(p.full_name || '—')}</h3>
+    <p class="help">${esc(p.phone || '')} · ${p.role==='admin'?'مديرة':'معلمة'}</p>
+    <div id="smsg"></div>
+    <button class="btn soft" id="spw">إعادة تعيين كلمة المرور</button>
+    ${self || p.role==='admin' ? '' : '<button class="btn soft" id="sdel" style="color:var(--pink)">حذف الحساب نهائيًا</button>'}
+    <button class="btn soft sm" id="sx">إغلاق</button>
+  `);
+  sheetPanel.querySelector('#sx').onclick = closeSheet;
+  sheetPanel.querySelector('#spw').onclick = () => resetPasswordFor(p.id, p.full_name);
+  const del = sheetPanel.querySelector('#sdel');
+  if(del) del.onclick = () => confirmAction(
+    'حذف الحساب',
+    `سيُحذف حساب ${esc(p.full_name||'')} نهائيًا. الحضور الذي سجّلته والأنشطة التي نشرتها تبقى كما هي.`,
+    'حذف نهائيًا',
+    async () => {
+      const r = await safe(sb.rpc('admin_delete_account', { p_profile: p.id }));
+      if(!r) return 'تعذّر الحذف — تأكد من تشغيل تحديث قاعدة البيانات.';
+      await loadStaff(); toast('تم حذف الحساب'); render();
+    });
+}
+
 async function loadStaff(){
   const { data } = await sb.rpc('kg_staff');
   S.staff = data || [];
@@ -1705,6 +1729,63 @@ function resetPasswordFor(profileId, name){
     e.target.remove();
     await safe(loadResets());
     render();
+  };
+}
+
+function guardianSheet(child, g){
+  openSheet(`
+    <h3>${esc(g.full_name || 'ولي أمر')}</h3>
+    <p class="help">${esc(g.phone || '')} · ${esc(child.full_name)}</p>
+    <div id="gmsg"></div>
+    <button class="btn soft" id="gpw">إعادة تعيين كلمة المرور</button>
+    <button class="btn soft" id="gunlink">فصل عن ${esc(first(child.full_name))}</button>
+    <button class="btn soft" id="gdel" style="color:var(--pink)">حذف الحساب نهائيًا</button>
+    <button class="btn soft sm" id="gx">إغلاق</button>
+  `);
+  sheetPanel.querySelector('#gx').onclick = closeSheet;
+  sheetPanel.querySelector('#gpw').onclick = () => resetPasswordFor(g.id, g.full_name);
+
+  sheetPanel.querySelector('#gunlink').onclick = () => confirmAction(
+    'فصل ولي الأمر',
+    `سيتوقف ${esc(g.full_name||'')} عن رؤية ${esc(child.full_name)} وعن استقبال إشعاراته. يبقى حسابه موجودًا، ويُفتح مقعد في رمز الطفل.`,
+    'فصل',
+    async () => {
+      const r = await safe(sb.rpc('admin_unlink_guardian', { p_child: child.id, p_profile: g.id }));
+      if(!r) return 'تعذّر الفصل — تأكد من تشغيل تحديث قاعدة البيانات.';
+      await refresh(); await loadInvites();
+      toast('تم فصل ولي الأمر'); render();
+    });
+
+  sheetPanel.querySelector('#gdel').onclick = () => confirmAction(
+    'حذف الحساب',
+    `سيُحذف حساب ${esc(g.full_name||'')} نهائيًا ولا يمكن التراجع. سجلات الحضور والأنشطة تبقى كما هي.`,
+    'حذف نهائيًا',
+    async () => {
+      const r = await safe(sb.rpc('admin_delete_account', { p_profile: g.id }));
+      if(!r) return 'تعذّر الحذف — تأكد من تشغيل تحديث قاعدة البيانات.';
+      await refresh(); await loadInvites();
+      toast('تم حذف الحساب'); render();
+    });
+}
+
+// a destructive action always needs a second, deliberate tap
+function confirmAction(title, body, label, run){
+  openSheet(`
+    <h3>${title}</h3>
+    <p class="help">${body}</p>
+    <div id="cfmsg"></div>
+    <button class="btn" id="cfgo" style="background:var(--pink)">${esc(label)}</button>
+    <button class="btn soft sm" id="cfx">تراجع</button>
+  `);
+  sheetPanel.querySelector('#cfx').onclick = closeSheet;
+  sheetPanel.querySelector('#cfgo').onclick = async (e) => {
+    e.target.disabled = true; e.target.textContent = 'جارٍ التنفيذ…';
+    const err = await run();
+    if(err){
+      sheetPanel.querySelector('#cfmsg').innerHTML = '<div class="err">' + esc(err) + '</div>';
+      e.target.disabled = false; e.target.textContent = label; return;
+    }
+    closeSheet();
   };
 }
 
