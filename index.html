@@ -309,7 +309,7 @@ const S = {
   classes:[], children:[], attendance:{}, posts:[],
   myChildren:[], activeClass:null, tab:null, invites:[], people:{},
   channel:null, linked:new Set(), pushOn:false,
-  absences:{}, staff:[], adminTab:'overview', childQuery:''
+  absences:{}, staff:[], adminTab:'overview', childQuery:'', feedScope:'all'
 };
 
 const el = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
@@ -714,23 +714,63 @@ function absenceSheet(child){
 }
 
 function buildFeed(){
+  const staff = S.profile.role !== 'parent';
+  const box = el('<div style="display:flex;flex-direction:column;gap:14px"></div>');
+
+  // ---- scope selector: classes for staff, children for parents with more than one ----
+  let scopes = [];
+  if(staff){
+    scopes = [{id:'all', label:'كل الفصول'}].concat(S.classes.map(c => ({id:c.id, label:'فصل '+c.name})));
+  } else if(S.myChildren.length > 1){
+    scopes = [{id:'all', label:'الكل'}].concat(S.myChildren.map(c => ({id:c.id, label:first(c.full_name)})));
+  }
+  if(scopes.length && !scopes.find(x=>x.id===S.feedScope)) S.feedScope = 'all';
+
+  if(scopes.length > 1){
+    const chips = el('<div class="chips"></div>');
+    scopes.forEach(sc => {
+      const b = el(`<button class="chip" aria-pressed="${sc.id===S.feedScope}">${esc(sc.label)}</button>`);
+      b.onclick = () => { S.feedScope = sc.id; render(); };
+      chips.appendChild(b);
+    });
+    box.appendChild(chips);
+  }
+
+  // ---- which children and which class does the scope cover ----
+  let kids, classIds;
+  if(staff){
+    kids = S.feedScope === 'all' ? S.children : S.children.filter(c => c.class_id === S.feedScope);
+    classIds = S.feedScope === 'all' ? S.classes.map(c=>c.id) : [S.feedScope];
+  } else {
+    kids = S.feedScope === 'all' ? S.myChildren : S.myChildren.filter(c => c.id === S.feedScope);
+    classIds = kids.map(c => c.class_id).filter(Boolean);
+  }
+
   const items = [];
-  const mine = S.profile.role==='parent' ? S.myChildren : S.children.filter(c=>c.class_id===S.activeClass);
-  mine.forEach(c => {
+  kids.forEach(c => {
     const a = S.attendance[c.id];
     const fem = c.gender === 'f';
     if(a && a.check_in_at) items.push({t:a.check_in_at, kind:'in', title:(fem?'وصلت ':'وصل ')+first(c.full_name)+' إلى الروضة', sub:fmtTime(a.check_in_at)});
     if(a && a.check_out_at) items.push({t:a.check_out_at, kind:'out', title:(fem?'غادرت ':'غادر ')+first(c.full_name)+' الروضة', sub:fmtTime(a.check_out_at)});
   });
-  S.posts.forEach(p => items.push({
-    t:p.created_at, kind:p.kind==='activity'?'photo':'megaphone',
-    title:p.kind==='activity'?'نشاط جديد':'إعلان من الإدارة',
-    sub:fmtTime(p.created_at), body:p.body, photos:p.photo_paths||[]
-  }));
+
+  S.posts
+    .filter(p => p.class_id === null || classIds.includes(p.class_id))
+    .forEach(p => {
+      const cls = S.classes.find(x => x.id === p.class_id);
+      items.push({
+        t:p.created_at, kind:p.kind==='activity'?'photo':'megaphone',
+        title:p.kind==='activity'?'نشاط جديد':'إعلان من الإدارة',
+        sub:fmtTime(p.created_at) + (cls ? ' · فصل ' + cls.name : ' · لكل الروضة'),
+        body:p.body, photos:p.photo_paths||[]
+      });
+    });
+
   items.sort((a,b)=> new Date(b.t)-new Date(a.t));
 
   const feed = el('<div class="feed"></div>');
-  if(!items.length){ feed.appendChild(el('<div class="empty">لا توجد أخبار بعد اليوم.</div>')); return feed; }
+  box.appendChild(feed);
+  if(!items.length){ feed.appendChild(el('<div class="empty">لا توجد أخبار هنا بعد.</div>')); return box; }
 
   const TINT = { in:'tint-green', out:'tint-yellow', photo:'tint-blue', megaphone:'' };
   const ICCLR = { in:'green', out:'yellow', photo:'blue', megaphone:'pink' };
@@ -747,22 +787,22 @@ function buildFeed(){
 
     const photos = it.photos || [];
     if(photos.length){
-      const shown = photos.slice(0,3);
-      const n = shown.length;
-      const box = el(`<div class="shots n${n}"></div>`);
-      node.appendChild(box);
+      const n = Math.min(photos.length, 3);
+      const grid = el(`<div class="shots n${n}"></div>`);
+      node.appendChild(grid);
       sb.storage.from('photos').createSignedUrls(photos, 3600).then(({data})=>{
         const urls = (data||[]).map(u=>u.signedUrl).filter(Boolean);
-        box.innerHTML = '';
+        grid.innerHTML = '';
         urls.slice(0,n).forEach((u,i) => {
-          const b = el(`<button class="${i===n-1&&photos.length>n?'more':''}" ${i===n-1&&photos.length>n?`data-more="+${photos.length-n}"`:''} aria-label="عرض الصورة"><img loading="lazy" alt="صورة من النشاط" src="${u}"></button>`);
+          const last = (i===n-1 && photos.length>n);
+          const b = el(`<button class="${last?'more':''}" ${last?`data-more="+${photos.length-n}"`:''} aria-label="عرض الصورة"><img loading="lazy" alt="صورة من النشاط" src="${u}"></button>`);
           b.onclick = () => openPhoto(u);
-          box.appendChild(b);
+          grid.appendChild(b);
         });
       });
     }
   });
-  return feed;
+  return box;
 }
 
 /* ================= admin ================= */
