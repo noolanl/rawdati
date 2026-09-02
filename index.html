@@ -242,6 +242,28 @@ main{flex:1;padding:16px 16px 100px;display:flex;flex-direction:column;gap:16px}
 .actions2{display:flex;gap:9px}
 .actions2 .btn{flex:1}
 
+.switchrow{display:flex;align-items:center;gap:12px;padding:11px 0}
+.switchrow .t{flex:1;min-width:0}
+.switchrow .t b{display:block;font-size:14.5px;font-weight:600}
+.switchrow .t span{font-size:12.5px;color:var(--ink-2)}
+.sw{width:48px;height:28px;border-radius:999px;background:var(--line);border:none;flex:none;position:relative;cursor:pointer;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.sw[aria-checked="true"]{background:var(--green)}
+.sw[aria-checked="true"]::after{transform:translateX(-20px)}
+.divider{height:1px;background:var(--line);margin:2px 0}
+
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th,.tbl td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl th{color:var(--ink-2);font-weight:600;font-size:11.5px}
+.tbl td.num{font-variant-numeric:tabular-nums}
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+.consentbox{display:flex;gap:11px;align-items:flex-start;background:var(--sunken);border-radius:var(--r-md);padding:13px 15px;font-size:13.5px;line-height:1.6}
+.consentbox input{width:20px;height:20px;flex:none;margin-top:2px;accent-color:var(--green)}
+.pickup-note{display:flex;align-items:center;gap:10px;background:var(--blue-soft);border-radius:var(--r-md);padding:12px 15px;font-size:13.5px;color:var(--blue-ink)}
+.pickup-note .t{flex:1}
+.pickup-note button{border:none;background:transparent;color:var(--blue-ink);font-weight:700;cursor:pointer;font-size:13px;text-decoration:underline;font-family:inherit}
+
 /* ===== notification banner ===== */
 .notif{display:flex;align-items:center;gap:12px;background:var(--yellow-soft);border-radius:var(--r-md);padding:13px 15px}
 .notif .t{flex:1;min-width:0}
@@ -309,7 +331,8 @@ const S = {
   classes:[], children:[], attendance:{}, posts:[],
   myChildren:[], activeClass:null, tab:null, invites:[], people:{},
   channel:null, linked:new Set(), pushOn:false,
-  absences:{}, staff:[], adminTab:'overview', childQuery:'', feedScope:'all'
+  absences:{}, staff:[], adminTab:'overview', childQuery:'', feedScope:'all',
+  pickups:{}, notif:null, consentGiven:false, report:null, hasV2:true
 };
 
 const el = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
@@ -324,6 +347,9 @@ const dayOffset = (n) => { const d = new Date(); d.setDate(d.getDate()+n); retur
 const dayLabel = (iso) => iso===today() ? 'اليوم' : iso===dayOffset(1) ? 'غدًا'
   : new Date(iso+'T12:00:00').toLocaleDateString(LOC,{weekday:'long',day:'numeric',month:'long'});
 const REASONS = { sick:'مرض', travel:'سفر', family:'ظرف عائلي', other:'سبب آخر' };
+const NOTIF_DEFAULT = { attendance:true, activities:'instant', announcements:true, absence:true, quiet:true };
+// new tables/functions may not be migrated yet — never let that break the app
+async function safe(promise){ try { const r = await promise; return r && r.error ? null : r; } catch(_) { return null; } }
 
 // parents sign in with a phone number; it maps to an internal address Supabase understands
 const LOGIN_DOMAIN = 'wali.mubdioon.sa';
@@ -366,6 +392,8 @@ const ICONS = {
   users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>',
   home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
   chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v3M12 9v9M17 5v13"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  car:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14"/><path d="M6 17V9l2-4h8l2 4v8"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>',
   exit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>'
 };
 
@@ -388,7 +416,9 @@ function renderAuth(mode){
         <p class="help">يمكنك أيضًا استخدام بريدك الإلكتروني إن كان لديك حساب سابق.</p></div>
       <div class="field"><label for="pw">كلمة المرور</label><input id="pw" type="password" required minlength="6" autocomplete="${mode==='up'?'new-password':'current-password'}" placeholder="٦ أحرف على الأقل"></div>
       ${mode==='up' ? `<div class="field"><label for="cd">رمز الانضمام</label><input id="cd" required placeholder="PARENT-0001" style="text-transform:uppercase">
-        <p class="help">الرمز تعطيه لك إدارة الروضة.</p></div>` : ''}
+        <p class="help">الرمز تعطيه لك إدارة الروضة.</p></div>
+      <label class="consentbox"><input type="checkbox" id="cs" required>
+        <span>أوافق على أن تحتفظ الروضة ببيانات طفلي وصوره داخل التطبيق، وأن تُعرض على أولياء أمر الطفل ومعلماته فقط. يمكنني سحب الموافقة في أي وقت من الإعدادات.</span></label>` : ''}
       <button class="btn" type="submit">${mode==='up'?'إنشاء الحساب':'دخول'}</button>
     </form>
   </div>`);
@@ -417,6 +447,7 @@ function renderAuth(mode){
           await sb.auth.signOut();
           throw new Error(e2.message.includes('ALREADY_USED') ? 'هذا الرمز مستخدم من قبل.' : 'رمز الانضمام غير صحيح.');
         }
+        await safe(sb.rpc('set_consent'));
       } else {
         const { error } = await sb.auth.signInWithPassword({ email, password });
         if(error) throw new Error('رقم الجوال أو كلمة المرور غير صحيحة.');
@@ -463,6 +494,10 @@ async function loadCore(){
     sb.from('classes').select('*').eq('kindergarten_id', prof.kindergarten_id).order('name')
   ]);
   S.kg = kg.data; S.classes = classes.data || [];
+  S.notif = (prof && prof.notif) ? Object.assign({}, NOTIF_DEFAULT, prof.notif) : Object.assign({}, NOTIF_DEFAULT);
+  S.hasV2 = !!(prof && prof.notif);
+  const g = await safe(sb.from('guardians').select('consent_at').eq('profile_id', prof.id));
+  S.consentGiven = !!(g && (g.data||[]).some(x => x.consent_at));
   await refresh();
   return true;
 }
@@ -480,6 +515,9 @@ async function refresh(){
   S.posts = po.data || [];
   S.absences = {};
   (ab.data||[]).forEach(r => S.absences[r.child_id + '|' + r.day] = r);
+  const pk = await safe(sb.from('pickups').select('*').gte('day', today()).lte('day', dayOffset(7)));
+  S.pickups = {};
+  if(pk) (pk.data||[]).forEach(r => S.pickups[r.child_id + '|' + r.day] = r);
   if(S.profile.role === 'parent') S.myChildren = S.children;
   if(S.profile.role !== 'parent'){
     const { data: lk } = await sb.rpc('children_with_push');
@@ -505,6 +543,7 @@ function subscribe(){
 }
 
 function absenceOf(childId, day){ return S.absences[childId + '|' + (day||today())] || null; }
+function pickupOf(childId, day){ return S.pickups[childId + '|' + (day||today())] || null; }
 
 function statusOf(childId){
   const a = S.attendance[childId];
@@ -548,9 +587,11 @@ function viewRoster(){
                 : st.k==='left' ? 'غادر ' + fmtTime(st.t)
                 : ab ? 'غياب مُبلّغ · ' + (REASONS[ab.reason] || ab.reason) + (ab.note ? ' · ' + ab.note : '')
                 : 'لم يصل بعد';
+    const pk = pickupOf(k.id);
+    const label2 = pk ? label + ' · يستلمه: ' + pk.person_name : label;
     const b = el(`<button class="kid ${st.k==='out' ? (ab?'absent':'') : st.k}">
       <span class="face">${esc(initial(k.full_name))}</span>
-      <span class="nm"><b>${esc(k.full_name)}${S.linked.has(k.id)?' <span class="bell" title="ولي الأمر مشترك في الإشعارات">🔔</span>':''}</b><span>${label}</span></span>
+      <span class="nm"><b>${esc(k.full_name)}${S.linked.has(k.id)?' <span class="bell" title="ولي الأمر مشترك في الإشعارات">🔔</span>':''}</b><span>${label2}</span></span>
       <span class="check">${ICONS.check}</span>
     </button>`);
     b.onclick = async () => {
@@ -668,11 +709,32 @@ function viewParent(){
       wrap.appendChild(n);
     });
 
-    if(!absenceOf(c.id, today()) || !absenceOf(c.id, dayOffset(1))){
-      const b = el(`<button class="btn soft">إبلاغ عن غياب ${esc(first(c.full_name))}</button>`);
-      b.onclick = () => absenceSheet(c);
-      wrap.appendChild(b);
+    // who is collecting the child today
+    const pk = pickupOf(c.id, today());
+    if(pk){
+      const n = el(`<div class="pickup-note">
+        <span class="t">يستلم ${esc(first(c.full_name))} اليوم: <b>${esc(pk.person_name)}</b>${pk.relation?' · '+esc(pk.relation):''}${pk.phone?' · '+esc(pk.phone):''}</span>
+        <button type="button">إلغاء</button>
+      </div>`);
+      n.querySelector('button').onclick = async () => {
+        const r = await safe(sb.rpc('clear_pickup', { p_child: c.id, p_day: today() }));
+        if(!r){ toast('تعذّر الإلغاء'); return; }
+        delete S.pickups[c.id + '|' + today()];
+        toast('تم الإلغاء'); render();
+      };
+      wrap.appendChild(n);
     }
+
+    const acts = el('<div class="actions2"></div>');
+    if(!absenceOf(c.id, today()) || !absenceOf(c.id, dayOffset(1))){
+      const b = el(`<button class="btn soft sm">إبلاغ عن غياب</button>`);
+      b.onclick = () => absenceSheet(c);
+      acts.appendChild(b);
+    }
+    const pb = el(`<button class="btn soft sm">${pk?'تغيير المستلم':'من سيستلم الطفل؟'}</button>`);
+    pb.onclick = () => pickupSheet(c);
+    acts.appendChild(pb);
+    wrap.appendChild(acts);
   });
   wrap.appendChild(buildFeed());
   return wrap;
@@ -710,6 +772,38 @@ function absenceSheet(child){
     S.absences[child.id + '|' + p_day] = data;
     notifyServer({ type:'absence', child_id: child.id, day: p_day });
     closeSheet(); toast('تم إرسال البلاغ للروضة'); render();
+  };
+}
+
+function pickupSheet(child){
+  const existing = pickupOf(child.id, today());
+  openSheet(`
+    <h3>من سيستلم ${esc(first(child.full_name))}؟</h3>
+    <p class="help">يظهر للمعلمة عند وقت الخروج اليوم فقط.</p>
+    <div class="field"><label for="pn">اسم المستلم</label><input id="pn" value="${existing?esc(existing.person_name):''}" placeholder="الاسم الكامل"></div>
+    <div class="field"><label for="pr">صلة القرابة</label><input id="pr" value="${existing&&existing.relation?esc(existing.relation):''}" placeholder="مثال: الخال"></div>
+    <div class="field"><label for="pp">رقم الجوال</label><input id="pp" inputmode="tel" value="${existing&&existing.phone?esc(existing.phone):''}" placeholder="05XXXXXXXX"></div>
+    <div id="pmsg"></div>
+    <button class="btn" id="psave">حفظ</button>
+    <button class="btn soft sm" id="pcancel">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#pcancel').onclick = closeSheet;
+  sheetPanel.querySelector('#psave').onclick = async () => {
+    const name = sheetPanel.querySelector('#pn').value.trim();
+    if(!name){ sheetPanel.querySelector('#pmsg').innerHTML = '<div class="err">اكتب اسم المستلم.</div>'; return; }
+    const btn = sheetPanel.querySelector('#psave'); btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+    const r = await safe(sb.rpc('set_pickup', {
+      p_child: child.id, p_day: today(), p_name: name,
+      p_relation: sheetPanel.querySelector('#pr').value.trim() || null,
+      p_phone: sheetPanel.querySelector('#pp').value.trim() || null
+    }));
+    if(!r){
+      sheetPanel.querySelector('#pmsg').innerHTML = '<div class="err">تعذّر الحفظ. حدّث الصفحة وحاول مرة أخرى.</div>';
+      btn.disabled = false; btn.textContent = 'حفظ'; return;
+    }
+    S.pickups[child.id + '|' + today()] = r.data;
+    notifyServer({ type:'pickup', child_id: child.id, day: today() });
+    closeSheet(); toast('تم إبلاغ الروضة'); render();
   };
 }
 
@@ -808,7 +902,7 @@ function buildFeed(){
 /* ================= admin ================= */
 function viewAdmin(){
   const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
-  const TABS = [['overview','نظرة عامة'],['children','الأطفال'],['classes','الفصول'],['staff','المعلمات']];
+  const TABS = [['overview','نظرة عامة'],['children','الأطفال'],['classes','الفصول'],['staff','المعلمات'],['reports','التقارير']];
   const nav = el('<div class="subnav"></div>');
   TABS.forEach(([k,l])=>{
     const b = el(`<button aria-pressed="${S.adminTab===k}">${l}</button>`);
@@ -820,6 +914,7 @@ function viewAdmin(){
   if(S.adminTab==='overview') wrap.appendChild(adminOverview());
   else if(S.adminTab==='children') wrap.appendChild(adminChildren());
   else if(S.adminTab==='classes') wrap.appendChild(adminClasses());
+  else if(S.adminTab==='reports') wrap.appendChild(adminReports());
   else wrap.appendChild(adminStaff());
   return wrap;
 }
@@ -1091,6 +1186,85 @@ function adminStaff(){
   return wrap;
 }
 
+function monthStart(){ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString('en-CA'); }
+
+function adminReports(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:14px"></div>');
+  const card = el(`<div class="card">
+    <h3>تقرير الحضور</h3>
+    <div class="actions2">
+      <div class="field" style="flex:1"><label for="rf">من</label><input id="rf" type="date" value="${monthStart()}"></div>
+      <div class="field" style="flex:1"><label for="rt">إلى</label><input id="rt" type="date" value="${today()}"></div>
+    </div>
+    <button class="btn sm" id="rrun">عرض التقرير</button>
+    <div id="rout"></div>
+  </div>`);
+  const out = card.querySelector('#rout');
+
+  const paint = (rows, from, to) => {
+    if(!rows || !rows.length){ out.innerHTML = '<div class="empty">لا توجد بيانات في هذه الفترة.</div>'; return; }
+    out.innerHTML = '';
+    out.appendChild(el(`<div class="tblwrap"><table class="tbl">
+      <thead><tr><th>الطفل</th><th>الفصل</th><th>أيام الحضور</th><th>غياب مُبلّغ</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td>${esc(r.full_name)}</td><td>${esc(r.class_name||'—')}</td>
+        <td class="num">${r.present}</td><td class="num">${r.absent_reported}</td></tr>`).join('')}</tbody>
+    </table></div>`));
+    const dl = el('<button class="btn soft sm">تنزيل CSV</button>');
+    dl.onclick = () => {
+      const head = 'الطفل,الفصل,أيام الحضور,غياب مبلغ\n';
+      const body = rows.map(r=>[r.full_name, r.class_name||'', r.present, r.absent_reported].join(',')).join('\n');
+      const blob = new Blob(['\ufeff' + head + body], {type:'text/csv;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `attendance-${from}-to-${to}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+    out.appendChild(dl);
+  };
+
+  card.querySelector('#rrun').onclick = async (e) => {
+    const btn = e.target; btn.disabled = true; btn.textContent = 'جارٍ الحساب…';
+    const from = card.querySelector('#rf').value, to = card.querySelector('#rt').value;
+    const r = await safe(sb.rpc('attendance_report', { p_from: from, p_to: to }));
+    btn.disabled = false; btn.textContent = 'عرض التقرير';
+    if(!r){ out.innerHTML = '<div class="err">التقرير غير متاح بعد — شغّل تحديث قاعدة البيانات أولًا.</div>'; return; }
+    S.report = r.data || [];
+    paint(S.report, from, to);
+  };
+  wrap.appendChild(card);
+
+  // consent overview
+  const cs = el('<div class="card"><h3>موافقات أولياء الأمور</h3><div id="csout"><p class="help">جارٍ التحميل…</p></div></div>');
+  wrap.appendChild(cs);
+  safe(sb.rpc('consent_status')).then(r => {
+    const box = cs.querySelector('#csout'); if(!box) return;
+    if(!r){ box.innerHTML = '<p class="help">غير متاح بعد — شغّل تحديث قاعدة البيانات.</p>'; return; }
+    const rows = r.data || [];
+    const withG = rows.filter(x => x.guardians > 0);
+    const done = withG.filter(x => x.consented > 0).length;
+    const missing = withG.filter(x => x.consented === 0)
+      .map(x => (S.children.find(c=>c.id===x.child_id)||{}).full_name).filter(Boolean);
+    box.innerHTML = `<p class="help">${done} من ${withG.length} طفل لديهم موافقة مسجّلة.</p>` +
+      (missing.length ? '<p class="help">بدون موافقة: ' + esc(missing.slice(0,12).join('، ')) + '</p>' : '');
+  });
+
+  // photo retention
+  const rt = el(`<div class="card"><h3>الاحتفاظ بالصور</h3>
+    <p class="help">تُحذف صور الأنشطة الأقدم من ${S.kg && S.kg.photo_retention_days ? S.kg.photo_retention_days : 365} يومًا.</p>
+    <div id="pgout"></div>
+    <button class="btn soft sm" id="purge">حذف الصور القديمة الآن</button></div>`);
+  rt.querySelector('#purge').onclick = async (e) => {
+    const b = e.target; b.disabled = true; b.textContent = 'جارٍ الحذف…';
+    const r = await safe(sb.rpc('purge_old_photos'));
+    rt.querySelector('#pgout').innerHTML = r
+      ? '<div class="ok">تم حذف ' + (r.data ?? 0) + ' صورة.</div>'
+      : '<div class="err">غير متاح بعد — شغّل تحديث قاعدة البيانات.</div>';
+    b.disabled = false; b.textContent = 'حذف الصور القديمة الآن';
+  };
+  wrap.appendChild(rt);
+  return wrap;
+}
+
 async function loadStaff(){
   const { data } = await sb.rpc('kg_staff');
   S.staff = data || [];
@@ -1099,6 +1273,103 @@ async function loadStaff(){
 async function loadInvites(){
   const { data } = await sb.from('invites').select('*').order('code').limit(400);
   S.invites = data || [];
+}
+
+/* ================= settings ================= */
+function viewSettings(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+  const parent = S.profile.role === 'parent';
+
+  // --- notifications ---
+  const card = el(`<div class="card"><h3>الإشعارات</h3></div>`);
+  const rows = [
+    ['attendance', 'الوصول والمغادرة', parent ? 'تنبيه فور تسجيل دخول أو خروج طفلك.' : 'تنبيه عند تسجيل الحضور.'],
+    ['announcements', 'إعلانات الإدارة', 'الرحلات، الإجازات، التذكيرات.'],
+  ];
+  if(!parent) rows.push(['absence', 'بلاغات الغياب', 'عندما يُبلّغ ولي أمر عن غياب طفله.']);
+
+  rows.forEach(([key, title, desc]) => {
+    const r = el(`<div class="switchrow"><div class="t"><b>${title}</b><span>${desc}</span></div>
+      <button class="sw" role="switch" aria-checked="${!!S.notif[key]}"></button></div>`);
+    r.querySelector('.sw').onclick = async (e) => {
+      S.notif[key] = !S.notif[key];
+      e.target.setAttribute('aria-checked', String(!!S.notif[key]));
+      await safe(sb.rpc('set_notif', { p: S.notif }));
+    };
+    card.appendChild(r);
+    card.appendChild(el('<div class="divider"></div>'));
+  });
+
+  const act = el(`<div class="field"><label for="ac">الأنشطة والصور</label>
+    <select id="ac">
+      <option value="instant" ${S.notif.activities==='instant'?'selected':''}>تنبيه فوري لكل نشاط</option>
+      <option value="daily" ${S.notif.activities==='daily'?'selected':''}>ملخّص واحد في نهاية اليوم</option>
+      <option value="off" ${S.notif.activities==='off'?'selected':''}>بدون تنبيه</option>
+    </select></div>`);
+  act.querySelector('#ac').onchange = async (e) => {
+    S.notif.activities = e.target.value;
+    await safe(sb.rpc('set_notif', { p: S.notif }));
+    toast('تم الحفظ');
+  };
+  card.appendChild(act);
+
+  const quiet = el(`<div class="switchrow"><div class="t"><b>ساعات الهدوء</b><span>لا تصل تنبيهات الأنشطة والإعلانات بين ٩ مساءً و٦ صباحًا.</span></div>
+    <button class="sw" role="switch" aria-checked="${!!S.notif.quiet}"></button></div>`);
+  quiet.querySelector('.sw').onclick = async (e) => {
+    S.notif.quiet = !S.notif.quiet;
+    e.target.setAttribute('aria-checked', String(!!S.notif.quiet));
+    await safe(sb.rpc('set_notif', { p: S.notif }));
+  };
+  card.appendChild(quiet);
+  wrap.appendChild(card);
+
+  // --- device ---
+  const dev = el('<div class="card"><h3>هذا الجهاز</h3></div>');
+  const b = pushBanner();
+  if(b) dev.appendChild(b);
+  else dev.appendChild(el('<p class="help">الإشعارات مفعّلة على هذا الجهاز ✅</p>'));
+  wrap.appendChild(dev);
+
+  // --- privacy (parents) ---
+  if(parent){
+    const pv = el(`<div class="card"><h3>الخصوصية</h3>
+      <p class="help">${S.consentGiven ? 'وافقتَ على حفظ بيانات طفلك وصوره داخل التطبيق.' : 'لم تُسجَّل موافقتك بعد.'}</p></div>`);
+    if(!S.consentGiven){
+      const cb = el('<button class="btn sm">تسجيل الموافقة</button>');
+      cb.onclick = async () => {
+        const r = await safe(sb.rpc('set_consent'));
+        if(!r){ toast('تعذّر الحفظ'); return; }
+        S.consentGiven = true; toast('تم تسجيل الموافقة'); render();
+      };
+      pv.appendChild(cb);
+    } else {
+      const wd = el('<button class="btn soft sm">سحب الموافقة</button>');
+      wd.onclick = () => toast('راجع إدارة الروضة لسحب الموافقة وحذف الصور.');
+      pv.appendChild(wd);
+    }
+    wrap.appendChild(pv);
+  }
+
+  // --- password ---
+  const pw = el(`<div class="card"><h3>كلمة المرور</h3>
+    <div class="field"><label for="np">كلمة مرور جديدة</label><input id="np" type="password" minlength="6" placeholder="٦ أحرف على الأقل"></div>
+    <div id="pwmsg"></div>
+    <button class="btn soft sm" id="pwsave">تغيير كلمة المرور</button></div>`);
+  pw.querySelector('#pwsave').onclick = async () => {
+    const v = pw.querySelector('#np').value;
+    if(!v || v.length < 6){ pw.querySelector('#pwmsg').innerHTML = '<div class="err">٦ أحرف على الأقل.</div>'; return; }
+    const { error } = await sb.auth.updateUser({ password: v });
+    pw.querySelector('#pwmsg').innerHTML = error
+      ? '<div class="err">'+esc(error.message)+'</div>'
+      : '<div class="ok">تم تغيير كلمة المرور.</div>';
+    if(!error) pw.querySelector('#np').value = '';
+  };
+  wrap.appendChild(pw);
+
+  const out = el('<button class="btn soft">تسجيل الخروج</button>');
+  out.onclick = async()=>{ if(S.channel) sb.removeChannel(S.channel); await sb.auth.signOut(); location.reload(); };
+  wrap.appendChild(out);
+  return wrap;
 }
 
 /* ================= push ================= */
@@ -1174,9 +1445,10 @@ async function checkPushState(){
 /* ================= shell ================= */
 function render(){
   const staff = S.profile.role==='admin' || S.profile.role==='teacher';
-  const tabs = staff
+  const tabs = (staff
     ? [{k:'roster',l:'الفصل',i:'users'}, {k:'feed',l:'الأخبار',i:'home'}].concat(S.profile.role==='admin'?[{k:'admin',l:'الإدارة',i:'chart'}]:[])
-    : [{k:'home',l:'طفلي',i:'home'}];
+    : [{k:'home',l:'طفلي',i:'home'}]
+  ).concat([{k:'settings',l:'الإعدادات',i:'gear'}]);
   if(!S.tab || !tabs.find(t=>t.k===S.tab)) S.tab = tabs[0].k;
 
   app.innerHTML = '';
@@ -1186,15 +1458,18 @@ function render(){
   const top = el(`<div class="topbar">
     <img class="logo" src="logo.png" alt="">
     <div class="who"><b>${esc(S.kg?S.kg.name:'المبدعون الصغار')}</b><span>${esc(sub)}</span></div>
-    <button class="iconbtn" id="logout" aria-label="تسجيل الخروج">${ICONS.exit}</button>
+    <button class="iconbtn" id="gotoSettings" aria-label="الإعدادات">${ICONS.gear}</button>
   </div>`);
-  top.querySelector('#logout').onclick = async()=>{ if(S.channel) sb.removeChannel(S.channel); await sb.auth.signOut(); location.reload(); };
+  top.querySelector('#gotoSettings').onclick = ()=>{ S.tab='settings'; render(); };
   app.appendChild(top);
 
   const main = el('<main></main>');
-  const banner = pushBanner();
-  if(banner) main.appendChild(banner);
-  if(S.tab==='roster') main.appendChild(viewRoster());
+  if(S.tab !== 'settings'){
+    const banner = pushBanner();
+    if(banner) main.appendChild(banner);
+  }
+  if(S.tab==='settings') main.appendChild(viewSettings());
+  else if(S.tab==='roster') main.appendChild(viewRoster());
   else if(S.tab==='admin') main.appendChild(viewAdmin());
   else if(S.tab==='feed') main.appendChild(buildFeed());
   else main.appendChild(viewParent());
