@@ -212,6 +212,36 @@ main{flex:1;padding:16px 16px 100px;display:flex;flex-direction:column;gap:16px}
 .code b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;color:var(--blue-ink)}
 .code .used{color:var(--ink-2);font-size:11.5px}
 
+/* ===== admin sub-nav, lists, absence ===== */
+.subnav{display:flex;gap:6px;overflow-x:auto;background:var(--sunken);border-radius:999px;padding:5px;scrollbar-width:none}
+.subnav::-webkit-scrollbar{display:none}
+.subnav button{border:none;background:transparent;border-radius:999px;padding:9px 15px;white-space:nowrap;cursor:pointer;font-weight:600;font-size:13.5px;color:var(--ink-2)}
+.subnav button[aria-pressed="true"]{background:var(--surface);color:var(--pink);box-shadow:var(--shadow-sm)}
+
+.rowlist{display:flex;flex-direction:column;gap:8px}
+.row{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:right;cursor:pointer;
+  background:var(--surface);border:none;border-radius:var(--r-md);padding:11px 13px;box-shadow:var(--shadow-sm);
+}
+.row .nm{flex:1;min-width:0}
+.row .nm b{display:block;font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .nm span{font-size:12px;color:var(--ink-2)}
+.row .tagx{flex:none;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--sunken);color:var(--ink-2)}
+.row .tagx.free{background:var(--green-soft);color:var(--green-ink)}
+.row .tagx.full{background:var(--blue-soft);color:var(--blue-ink)}
+
+.codebox{display:flex;align-items:center;gap:10px;background:var(--blue-soft);border-radius:var(--r-md);padding:13px 15px}
+.codebox b{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:17px;color:var(--blue-ink);letter-spacing:.04em}
+.codebox button{border:none;background:var(--blue);color:#fff;border-radius:999px;padding:8px 15px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}
+
+.kid.absent{background:var(--pink-soft);box-shadow:none}
+.kid.absent .face{background:#fff;color:var(--pink-ink)}
+.absent-note{display:flex;align-items:center;gap:10px;background:var(--pink-soft);border-radius:var(--r-md);padding:12px 15px;font-size:13.5px;color:var(--pink-ink)}
+.absent-note .t{flex:1}
+.absent-note button{border:none;background:transparent;color:var(--pink-ink);font-weight:700;cursor:pointer;font-size:13px;text-decoration:underline;font-family:inherit}
+.actions2{display:flex;gap:9px}
+.actions2 .btn{flex:1}
+
 /* ===== notification banner ===== */
 .notif{display:flex;align-items:center;gap:12px;background:var(--yellow-soft);border-radius:var(--r-md);padding:13px 15px}
 .notif .t{flex:1;min-width:0}
@@ -278,7 +308,8 @@ const S = {
   session:null, profile:null, kg:null,
   classes:[], children:[], attendance:{}, posts:[],
   myChildren:[], activeClass:null, tab:null, invites:[], people:{},
-  channel:null, linked:new Set(), pushOn:false
+  channel:null, linked:new Set(), pushOn:false,
+  absences:{}, staff:[], adminTab:'overview', childQuery:''
 };
 
 const el = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
@@ -289,6 +320,31 @@ const fmtDay  = (d) => new Date(d).toLocaleDateString(LOC,{weekday:'long',day:'n
 const today   = () => new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});
 const initial = (n) => (n||'؟').trim().charAt(0);
 const first   = (n) => String(n||'').split(' ')[0];
+const dayOffset = (n) => { const d = new Date(); d.setDate(d.getDate()+n); return d.toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'}); };
+const dayLabel = (iso) => iso===today() ? 'اليوم' : iso===dayOffset(1) ? 'غدًا'
+  : new Date(iso+'T12:00:00').toLocaleDateString(LOC,{weekday:'long',day:'numeric',month:'long'});
+const REASONS = { sick:'مرض', travel:'سفر', family:'ظرف عائلي', other:'سبب آخر' };
+
+// parents sign in with a phone number; it maps to an internal address Supabase understands
+const LOGIN_DOMAIN = 'wali.mubdioon.sa';
+function normalisePhone(v){
+  let d = String(v||'').replace(/[^\d+]/g,'');
+  if(d.startsWith('+')) d = d.slice(1);
+  if(d.startsWith('00')) d = d.slice(2);
+  if(d.startsWith('966')) return d;
+  if(d.startsWith('0')) return '966' + d.slice(1);
+  if(d.startsWith('5') && d.length === 9) return '966' + d;
+  return d;
+}
+function toEmail(id){
+  const t = String(id||'').trim();
+  if(t.includes('@')) return t;
+  return normalisePhone(t) + '@' + LOGIN_DOMAIN;
+}
+function isPhone(id){ return !String(id||'').includes('@'); }
+function copyText(t, btn){
+  navigator.clipboard.writeText(t).then(()=>{ if(btn){ const o=btn.textContent; btn.textContent='تم النسخ'; setTimeout(()=>btn.textContent=o,1600);} }).catch(()=>toast('انسخ الرمز يدويًا: '+t));
+}
 
 function toast(msg){
   toastEl.textContent = msg; toastEl.classList.add('show');
@@ -328,7 +384,8 @@ function renderAuth(mode){
     <div id="msg"></div>
     <form id="f" style="display:flex;flex-direction:column;gap:13px">
       ${mode==='up' ? `<div class="field"><label for="nm">الاسم</label><input id="nm" required placeholder="مثال: نورة الرشودي"></div>` : ''}
-      <div class="field"><label for="em">البريد الإلكتروني</label><input id="em" type="email" required autocomplete="email" placeholder="name@example.com"></div>
+      <div class="field"><label for="em">رقم الجوال</label><input id="em" required inputmode="tel" autocomplete="username" placeholder="05XXXXXXXX">
+        <p class="help">يمكنك أيضًا استخدام بريدك الإلكتروني إن كان لديك حساب سابق.</p></div>
       <div class="field"><label for="pw">كلمة المرور</label><input id="pw" type="password" required minlength="6" autocomplete="${mode==='up'?'new-password':'current-password'}" placeholder="٦ أحرف على الأقل"></div>
       ${mode==='up' ? `<div class="field"><label for="cd">رمز الانضمام</label><input id="cd" required placeholder="PARENT-0001" style="text-transform:uppercase">
         <p class="help">الرمز تعطيه لك إدارة الروضة.</p></div>` : ''}
@@ -343,13 +400,16 @@ function renderAuth(mode){
     e.preventDefault();
     const btn = e.target.querySelector('button[type=submit]');
     btn.disabled = true; msg.innerHTML = '';
-    const email = v.querySelector('#em').value.trim();
+    const raw = v.querySelector('#em').value.trim();
+    const email = toEmail(raw);
+    const phone = isPhone(raw) ? normalisePhone(raw) : null;
     const password = v.querySelector('#pw').value;
     try{
       if(mode==='up'){
         const full_name = v.querySelector('#nm').value.trim();
         const code = v.querySelector('#cd').value.trim().toUpperCase();
-        const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ full_name } } });
+        if(phone && phone.length < 12){ throw new Error('رقم الجوال غير صحيح. مثال: 0551234567'); }
+        const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ full_name, phone } } });
         if(error) throw error;
         if(!data.session){ msg.innerHTML = '<div class="ok">تم إنشاء الحساب. سجّل الدخول الآن.</div>'; btn.disabled=false; return; }
         const { error: e2 } = await sb.rpc('redeem_invite', { p_code: code });
@@ -359,7 +419,7 @@ function renderAuth(mode){
         }
       } else {
         const { error } = await sb.auth.signInWithPassword({ email, password });
-        if(error) throw new Error('البريد أو كلمة المرور غير صحيحة.');
+        if(error) throw new Error('رقم الجوال أو كلمة المرور غير صحيحة.');
       }
       await boot();
     }catch(err){
@@ -408,15 +468,18 @@ async function loadCore(){
 }
 
 async function refresh(){
-  const [ch, at, po] = await Promise.all([
-    sb.from('children').select('id,full_name,gender,class_id').eq('active', true).order('full_name'),
+  const [ch, at, po, ab] = await Promise.all([
+    sb.from('children').select('id,full_name,gender,class_id,active').eq('active', true).order('full_name'),
     sb.from('attendance').select('*').eq('day', today()),
-    sb.from('posts').select('*').order('created_at',{ascending:false}).limit(30)
+    sb.from('posts').select('*').order('created_at',{ascending:false}).limit(30),
+    sb.from('absences').select('*').gte('day', today()).lte('day', dayOffset(7))
   ]);
   S.children = ch.data || [];
   S.attendance = {};
   (at.data||[]).forEach(r => S.attendance[r.child_id] = r);
   S.posts = po.data || [];
+  S.absences = {};
+  (ab.data||[]).forEach(r => S.absences[r.child_id + '|' + r.day] = r);
   if(S.profile.role === 'parent') S.myChildren = S.children;
   if(S.profile.role !== 'parent'){
     const { data: lk } = await sb.rpc('children_with_push');
@@ -435,8 +498,13 @@ function subscribe(){
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'posts'}, p => {
       if(!S.posts.find(x=>x.id===p.new.id)){ S.posts.unshift(p.new); render(); }
     })
+    .on('postgres_changes',{event:'*',schema:'public',table:'absences'}, async () => {
+      await refresh(); render();
+    })
     .subscribe();
 }
+
+function absenceOf(childId, day){ return S.absences[childId + '|' + (day||today())] || null; }
 
 function statusOf(childId){
   const a = S.attendance[childId];
@@ -450,6 +518,7 @@ function viewRoster(){
   const kids = S.children.filter(c => c.class_id === S.activeClass);
   const inN = kids.filter(k => statusOf(k.id).k==='in').length;
   const leftN = kids.filter(k => statusOf(k.id).k==='left').length;
+  const absN = kids.filter(k => statusOf(k.id).k==='out' && absenceOf(k.id)).length;
 
   const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
 
@@ -466,17 +535,20 @@ function viewRoster(){
   wrap.appendChild(el(`<div class="counter">
     <div class="pill ok"><b class="num">${inN}</b><span>في الروضة</span></div>
     <div class="pill left"><b class="num">${leftN}</b><span>غادر</span></div>
-    <div class="pill no"><b class="num">${kids.length-inN-leftN}</b><span>لم يصل</span></div>
+    <div class="pill no"><b class="num">${kids.length-inN-leftN-absN}</b><span>لم يصل</span></div>
+    <div class="pill blue"><b class="num">${absN}</b><span>غياب مُبلّغ</span></div>
   </div>`));
 
   const roster = el('<div class="roster"></div>');
   if(!kids.length) roster.appendChild(el('<div class="empty">لا يوجد أطفال في هذا الفصل.</div>'));
   kids.forEach(k => {
     const st = statusOf(k.id);
+    const ab = st.k==='out' ? absenceOf(k.id) : null;
     const label = st.k==='in' ? 'وصل ' + fmtTime(st.t)
                 : st.k==='left' ? 'غادر ' + fmtTime(st.t)
+                : ab ? 'غياب مُبلّغ · ' + (REASONS[ab.reason] || ab.reason) + (ab.note ? ' · ' + ab.note : '')
                 : 'لم يصل بعد';
-    const b = el(`<button class="kid ${st.k==='out'?'':st.k}">
+    const b = el(`<button class="kid ${st.k==='out' ? (ab?'absent':'') : st.k}">
       <span class="face">${esc(initial(k.full_name))}</span>
       <span class="nm"><b>${esc(k.full_name)}${S.linked.has(k.id)?' <span class="bell" title="ولي الأمر مشترك في الإشعارات">🔔</span>':''}</b><span>${label}</span></span>
       <span class="check">${ICONS.check}</span>
@@ -578,9 +650,67 @@ function viewParent(){
       <div class="st"><span class="dot"></span><span>${esc(txt)}</span></div>
       <small>${esc(sub)}</small>
     </div>`));
+
+    // reported absences for today and tomorrow
+    [today(), dayOffset(1)].forEach(d => {
+      const ab = absenceOf(c.id, d);
+      if(!ab) return;
+      const n = el(`<div class="absent-note">
+        <span class="t">بلاغ غياب ${esc(dayLabel(d))} · ${esc(REASONS[ab.reason]||ab.reason)}${ab.note?' · '+esc(ab.note):''}</span>
+        <button type="button">إلغاء</button>
+      </div>`);
+      n.querySelector('button').onclick = async () => {
+        const { error } = await sb.rpc('cancel_absence', { p_child: c.id, p_day: d });
+        if(error){ toast('تعذّر الإلغاء'); return; }
+        delete S.absences[c.id + '|' + d];
+        toast('تم إلغاء البلاغ'); render();
+      };
+      wrap.appendChild(n);
+    });
+
+    if(!absenceOf(c.id, today()) || !absenceOf(c.id, dayOffset(1))){
+      const b = el(`<button class="btn soft">إبلاغ عن غياب ${esc(first(c.full_name))}</button>`);
+      b.onclick = () => absenceSheet(c);
+      wrap.appendChild(b);
+    }
   });
   wrap.appendChild(buildFeed());
   return wrap;
+}
+
+function absenceSheet(child){
+  const days = [today(), dayOffset(1)].filter(d => !absenceOf(child.id, d));
+  openSheet(`
+    <h3>إبلاغ عن غياب</h3>
+    <p class="help">${esc(child.full_name)} — سيصل البلاغ لمعلمة الفصل مباشرة.</p>
+    <div class="field">
+      <label for="ad">اليوم</label>
+      <select id="ad">${days.map(d=>`<option value="${d}">${esc(dayLabel(d))}</option>`).join('')}</select>
+    </div>
+    <div class="field">
+      <label for="ar">السبب</label>
+      <select id="ar">${Object.entries(REASONS).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label for="an">ملاحظة (اختياري)</label><input id="an" placeholder="مثال: موعد في المستشفى"></div>
+    <div id="amsg"></div>
+    <button class="btn" id="asend">إرسال البلاغ</button>
+    <button class="btn soft sm" id="acancel">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#acancel').onclick = closeSheet;
+  sheetPanel.querySelector('#asend').onclick = async () => {
+    const btn = sheetPanel.querySelector('#asend'); btn.disabled = true; btn.textContent = 'جارٍ الإرسال…';
+    const p_day = sheetPanel.querySelector('#ad').value;
+    const p_reason = sheetPanel.querySelector('#ar').value;
+    const p_note = sheetPanel.querySelector('#an').value.trim() || null;
+    const { data, error } = await sb.rpc('report_absence', { p_child: child.id, p_day, p_reason, p_note });
+    if(error){
+      sheetPanel.querySelector('#amsg').innerHTML = '<div class="err">تعذّر الإرسال: '+esc(error.message)+'</div>';
+      btn.disabled = false; btn.textContent = 'إرسال البلاغ'; return;
+    }
+    S.absences[child.id + '|' + p_day] = data;
+    notifyServer({ type:'absence', child_id: child.id, day: p_day });
+    closeSheet(); toast('تم إرسال البلاغ للروضة'); render();
+  };
 }
 
 function buildFeed(){
@@ -638,57 +768,61 @@ function buildFeed(){
 /* ================= admin ================= */
 function viewAdmin(){
   const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+  const TABS = [['overview','نظرة عامة'],['children','الأطفال'],['classes','الفصول'],['staff','المعلمات']];
+  const nav = el('<div class="subnav"></div>');
+  TABS.forEach(([k,l])=>{
+    const b = el(`<button aria-pressed="${S.adminTab===k}">${l}</button>`);
+    b.onclick = async ()=>{ S.adminTab = k; if(k==='staff' && !S.staff.length) await loadStaff(); render(); };
+    nav.appendChild(b);
+  });
+  wrap.appendChild(nav);
+
+  if(S.adminTab==='overview') wrap.appendChild(adminOverview());
+  else if(S.adminTab==='children') wrap.appendChild(adminChildren());
+  else if(S.adminTab==='classes') wrap.appendChild(adminClasses());
+  else wrap.appendChild(adminStaff());
+  return wrap;
+}
+
+function adminOverview(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
   const total = S.children.length;
   const inN = S.children.filter(c=>statusOf(c.id).k==='in').length;
   const leftN = S.children.filter(c=>statusOf(c.id).k==='left').length;
+  const absN = S.children.filter(c=>statusOf(c.id).k==='out' && absenceOf(c.id)).length;
 
   wrap.appendChild(el(`<div class="counter">
     <div class="pill blue"><b class="num">${total}</b><span>الأطفال</span></div>
     <div class="pill ok"><b class="num">${inN}</b><span>في الروضة</span></div>
     <div class="pill left"><b class="num">${leftN}</b><span>غادر</span></div>
-    <div class="pill no"><b class="num">${total-inN-leftN}</b><span>لم يصل</span></div>
+    <div class="pill no"><b class="num">${absN}</b><span>غياب مُبلّغ</span></div>
   </div>`));
 
   const bars = el('<div class="card"><h3>الحضور حسب الفصل</h3><div class="bars"></div></div>');
   const bx = bars.querySelector('.bars');
   S.classes.forEach(c => {
     const kids = S.children.filter(k=>k.class_id===c.id);
-    const p = kids.filter(k=>statusOf(k.id).k!=='out').length;
-    const pct = kids.length ? Math.round(p/kids.length*100) : 0;
+    const pr = kids.filter(k=>statusOf(k.id).k!=='out').length;
+    const pct = kids.length ? Math.round(pr/kids.length*100) : 0;
     bx.appendChild(el(`<div class="bar">
       <div class="lbl"><span>فصل ${esc(c.name)}</span><span class="track"><span class="fill" style="width:${pct}%"></span></span></div>
-      <span class="val num">${p}/${kids.length}</span>
+      <span class="val num">${pr}/${kids.length}</span>
     </div>`));
   });
   wrap.appendChild(bars);
 
-  const codes = el(`<div class="card">
-    <h3>رموز الانضمام</h3>
-    <p class="help">كل رمز يُستخدم مرة واحدة. رموز أولياء الأمور مرتبطة بطفل محدد.</p>
-    <div class="codes"></div>
-    <button class="btn soft sm" id="reloadCodes">تحديث</button>
-  </div>`);
-  const cx = codes.querySelector('.codes');
-  const roleName = { admin:'مديرة الروضة', teacher:'معلمة', parent:'ولي أمر' };
-  const paint = () => {
-    cx.innerHTML='';
-    if(!S.invites.length){ cx.appendChild(el('<div class="empty">لا توجد رموز.</div>')); return; }
-    S.invites.forEach(i => {
-      const child = S.children.find(c => c.id === i.child_id);
-      const forWhom = child ? child.full_name : (roleName[i.role] || i.role);
-      const person = i.used_by ? S.people[i.used_by] : null;
-      const status = i.used_at ? (person && person.full_name ? 'سجّل: ' + person.full_name : 'مستخدم') : 'متاح';
-      cx.appendChild(el(`<div class="code">
-        <span style="display:flex;flex-direction:column;gap:1px;min-width:0">
-          <b>${esc(i.code)}</b><span class="used">${esc(forWhom)}</span>
-        </span>
-        <span class="used" style="flex:none;text-align:left;${i.used_at?'':'opacity:.6'}">${esc(status)}</span>
-      </div>`));
-    });
-  };
-  codes.querySelector('#reloadCodes').onclick = async()=>{ await loadInvites(); paint(); };
-  paint();
-  wrap.appendChild(codes);
+  const abs = S.children
+    .map(c => ({c, ab: absenceOf(c.id)}))
+    .filter(x => x.ab);
+  if(abs.length){
+    const card = el('<div class="card"><h3>بلاغات الغياب اليوم</h3><div class="rowlist"></div></div>');
+    const lx = card.querySelector('.rowlist');
+    abs.forEach(({c,ab}) => lx.appendChild(el(`<div class="row" style="cursor:default">
+      <span class="face">${esc(initial(c.full_name))}</span>
+      <span class="nm"><b>${esc(c.full_name)}</b><span>${esc(REASONS[ab.reason]||ab.reason)}${ab.note?' · '+esc(ab.note):''}</span></span>
+    </div>`)));
+    wrap.appendChild(card);
+  }
 
   const test = el(`<div class="card">
     <h3>فحص الإشعارات</h3>
@@ -705,23 +839,226 @@ function viewAdmin(){
       box.innerHTML = data && data.sent
         ? '<div class="ok">تم الإرسال إلى ' + data.sent + ' جهاز.</div>'
         : '<div class="err">لا توجد أجهزة مفعّلة بعد.</div>';
-    }catch(err){
-      box.innerHTML = '<div class="err">فشل الإرسال: ' + esc(err.message || String(err)) + '</div>';
-    }
+    }catch(err){ box.innerHTML = '<div class="err">فشل الإرسال: ' + esc(err.message || String(err)) + '</div>'; }
     b.disabled = false; b.textContent = 'إرسال إشعار تجريبي';
   };
   wrap.appendChild(test);
   return wrap;
 }
 
+/* ---------- children ---------- */
+function adminChildren(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:12px"></div>');
+  const addBtn = el('<button class="btn">إضافة طفل</button>');
+  addBtn.onclick = addChildSheet;
+  wrap.appendChild(addBtn);
+
+  const search = el(`<div class="field"><input id="q" placeholder="ابحث بالاسم…" value="${esc(S.childQuery)}"></div>`);
+  wrap.appendChild(search);
+
+  const list = el('<div class="rowlist"></div>');
+  wrap.appendChild(list);
+
+  const paint = () => {
+    const q = S.childQuery.trim();
+    const kids = S.children.filter(c => !q || c.full_name.includes(q));
+    list.innerHTML = '';
+    if(!kids.length){ list.appendChild(el('<div class="empty">لا نتائج.</div>')); return; }
+    kids.slice(0,80).forEach(c => {
+      const cls = S.classes.find(x=>x.id===c.class_id);
+      const inv = S.invites.find(i => i.child_id === c.id);
+      const seats = inv ? `${inv.uses||0}/${inv.max_uses||1}` : '—';
+      const b = el(`<button class="row">
+        <span class="face">${esc(initial(c.full_name))}</span>
+        <span class="nm"><b>${esc(c.full_name)}</b><span>${cls?'فصل '+esc(cls.name):'بدون فصل'}</span></span>
+        <span class="tagx ${inv && (inv.uses||0) < (inv.max_uses||1) ? 'free':'full'}">${esc(seats)} أولياء</span>
+      </button>`);
+      b.onclick = () => childSheet(c);
+      list.appendChild(b);
+    });
+  };
+  search.querySelector('#q').oninput = (e) => { S.childQuery = e.target.value; paint(); };
+  paint();
+  return wrap;
+}
+
+function addChildSheet(){
+  openSheet(`
+    <h3>إضافة طفل</h3>
+    <div class="field"><label for="cn">اسم الطفل</label><input id="cn" placeholder="الاسم الثلاثي"></div>
+    <div class="field"><label for="cc">الفصل</label>
+      <select id="cc">${S.classes.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+    <div class="field"><label for="cg">الجنس</label>
+      <select id="cg"><option value="f">بنت</option><option value="m">ولد</option></select></div>
+    <div id="cmsg"></div>
+    <button class="btn" id="csave">إضافة</button>
+    <button class="btn soft sm" id="ccancel">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#ccancel').onclick = closeSheet;
+  sheetPanel.querySelector('#csave').onclick = async () => {
+    const name = sheetPanel.querySelector('#cn').value.trim();
+    if(!name){ sheetPanel.querySelector('#cmsg').innerHTML = '<div class="err">اكتب الاسم.</div>'; return; }
+    const btn = sheetPanel.querySelector('#csave'); btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+    const { data, error } = await sb.rpc('add_child', {
+      p_name: name, p_class: sheetPanel.querySelector('#cc').value,
+      p_gender: sheetPanel.querySelector('#cg').value, p_birth: null
+    });
+    if(error){
+      sheetPanel.querySelector('#cmsg').innerHTML = '<div class="err">تعذّر الحفظ: '+esc(error.message)+'</div>';
+      btn.disabled = false; btn.textContent = 'إضافة'; return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    await refresh(); await loadInvites();
+    openSheet(`<h3>تمت إضافة ${esc(name)}</h3>
+      <p class="help">أعطِ هذا الرمز لأولياء أمره. يصلح لأربعة أشخاص (الأب، الأم، …).</p>
+      <div class="codebox"><b>${esc(row.code)}</b><button id="cp">نسخ</button></div>
+      <button class="btn" id="cdone">تم</button>`);
+    sheetPanel.querySelector('#cp').onclick = (e)=>copyText(row.code, e.target);
+    sheetPanel.querySelector('#cdone').onclick = ()=>{ closeSheet(); render(); };
+  };
+}
+
+function childSheet(c){
+  const cls = S.classes.find(x=>x.id===c.class_id);
+  const inv = S.invites.find(i => i.child_id === c.id);
+  openSheet(`
+    <h3>${esc(c.full_name)}</h3>
+    <p class="help">${cls?'فصل '+esc(cls.name):'بدون فصل'}</p>
+    <div class="field"><label for="en">الاسم</label><input id="en" value="${esc(c.full_name)}"></div>
+    <div class="field"><label for="ec">الفصل</label>
+      <select id="ec">${S.classes.map(x=>`<option value="${x.id}" ${x.id===c.class_id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
+    ${inv ? `<div><p class="help" style="margin-bottom:6px">رمز أولياء الأمور — استُخدم ${inv.uses||0} من ${inv.max_uses||1}</p>
+      <div class="codebox"><b>${esc(inv.code)}</b><button id="cp">نسخ</button></div></div>` : ''}
+    <div id="gbox"><p class="help">جارٍ تحميل أولياء الأمور…</p></div>
+    <div id="emsg"></div>
+    <button class="btn" id="esave">حفظ</button>
+    <button class="btn soft sm" id="earchive">أرشفة الطفل</button>
+    <button class="btn soft sm" id="ecancel">إغلاق</button>
+  `);
+  if(inv) sheetPanel.querySelector('#cp').onclick = (e)=>copyText(inv.code, e.target);
+  sheetPanel.querySelector('#ecancel').onclick = closeSheet;
+
+  sb.rpc('child_guardians', { p_child: c.id }).then(({data}) => {
+    const box = sheetPanel.querySelector('#gbox');
+    if(!box) return;
+    const rows = data || [];
+    box.innerHTML = rows.length
+      ? '<p class="help" style="margin-bottom:6px">أولياء الأمور المسجّلون</p><div class="rowlist">' +
+        rows.map(g=>`<div class="row" style="cursor:default"><span class="face">${esc(initial(g.full_name))}</span>
+          <span class="nm"><b>${esc(g.full_name||'—')}</b><span>${esc(g.phone||'')}</span></span></div>`).join('') + '</div>'
+      : '<p class="help">لم يسجّل أي ولي أمر بعد.</p>';
+  });
+
+  sheetPanel.querySelector('#esave').onclick = async () => {
+    const btn = sheetPanel.querySelector('#esave'); btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+    const { error } = await sb.from('children').update({
+      full_name: sheetPanel.querySelector('#en').value.trim(),
+      class_id: sheetPanel.querySelector('#ec').value
+    }).eq('id', c.id);
+    if(error){ sheetPanel.querySelector('#emsg').innerHTML='<div class="err">'+esc(error.message)+'</div>'; btn.disabled=false; btn.textContent='حفظ'; return; }
+    await refresh(); closeSheet(); toast('تم الحفظ'); render();
+  };
+  sheetPanel.querySelector('#earchive').onclick = async () => {
+    const { error } = await sb.from('children').update({ active:false }).eq('id', c.id);
+    if(error){ toast('تعذّرت الأرشفة'); return; }
+    await refresh(); closeSheet(); toast('تمت أرشفة الطفل'); render();
+  };
+}
+
+/* ---------- classes ---------- */
+function adminClasses(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:12px"></div>');
+  const add = el('<button class="btn">إضافة فصل</button>');
+  add.onclick = () => classSheet(null);
+  wrap.appendChild(add);
+
+  const list = el('<div class="rowlist"></div>');
+  S.classes.forEach(c => {
+    const n = S.children.filter(k=>k.class_id===c.id).length;
+    const b = el(`<button class="row">
+      <span class="nm"><b>فصل ${esc(c.name)}</b><span>${n} طفل</span></span>
+      <span class="tagx">تعديل</span>
+    </button>`);
+    b.onclick = () => classSheet(c);
+    list.appendChild(b);
+  });
+  if(!S.classes.length) list.appendChild(el('<div class="empty">لا توجد فصول بعد.</div>'));
+  wrap.appendChild(list);
+  return wrap;
+}
+
+function classSheet(c){
+  openSheet(`
+    <h3>${c?'تعديل الفصل':'فصل جديد'}</h3>
+    <div class="field"><label for="kn">اسم الفصل</label><input id="kn" value="${c?esc(c.name):''}" placeholder="مثال: الفراشات"></div>
+    <div id="kmsg"></div>
+    <button class="btn" id="ksave">حفظ</button>
+    <button class="btn soft sm" id="kcancel">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#kcancel').onclick = closeSheet;
+  sheetPanel.querySelector('#ksave').onclick = async () => {
+    const name = sheetPanel.querySelector('#kn').value.trim();
+    if(!name){ sheetPanel.querySelector('#kmsg').innerHTML='<div class="err">اكتب الاسم.</div>'; return; }
+    const btn = sheetPanel.querySelector('#ksave'); btn.disabled = true;
+    const q = c ? sb.from('classes').update({ name }).eq('id', c.id)
+                : sb.from('classes').insert({ name, kindergarten_id: S.kg.id });
+    const { error } = await q;
+    if(error){ sheetPanel.querySelector('#kmsg').innerHTML='<div class="err">'+esc(error.message)+'</div>'; btn.disabled=false; return; }
+    const { data } = await sb.from('classes').select('*').eq('kindergarten_id', S.kg.id).order('name');
+    S.classes = data || [];
+    closeSheet(); toast('تم الحفظ'); render();
+  };
+}
+
+/* ---------- staff ---------- */
+function adminStaff(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:12px"></div>');
+  const add = el('<button class="btn">إنشاء رمز معلمة</button>');
+  add.onclick = async () => {
+    const { data, error } = await sb.rpc('create_invite', { p_role:'teacher', p_child:null, p_label:'معلمة', p_max:1 });
+    if(error){ toast('تعذّر الإنشاء: '+error.message); return; }
+    const row = Array.isArray(data) ? data[0] : data;
+    await loadInvites();
+    openSheet(`<h3>رمز معلمة جديد</h3>
+      <p class="help">أعطي هذا الرمز للمعلمة لتسجّل حسابها. يُستخدم مرة واحدة.</p>
+      <div class="codebox"><b>${esc(row.code)}</b><button id="sp">نسخ</button></div>
+      <button class="btn" id="sd">تم</button>`);
+    sheetPanel.querySelector('#sp').onclick = (e)=>copyText(row.code, e.target);
+    sheetPanel.querySelector('#sd').onclick = ()=>{ closeSheet(); render(); };
+  };
+  wrap.appendChild(add);
+
+  const list = el('<div class="rowlist"></div>');
+  S.staff.forEach(p => list.appendChild(el(`<div class="row" style="cursor:default">
+    <span class="face">${esc(initial(p.full_name))}</span>
+    <span class="nm"><b>${esc(p.full_name||'—')}</b><span>${esc(p.phone||'')}</span></span>
+    <span class="tagx ${p.role==='admin'?'full':''}">${p.role==='admin'?'مديرة':'معلمة'}</span>
+  </div>`)));
+  if(!S.staff.length) list.appendChild(el('<div class="empty">لا توجد حسابات بعد.</div>'));
+  wrap.appendChild(list);
+
+  const unused = S.invites.filter(i => i.role !== 'parent' && (i.uses||0) < (i.max_uses||1));
+  if(unused.length){
+    const card = el('<div class="card"><h3>رموز غير مستخدمة</h3><div class="rowlist"></div></div>');
+    const lx = card.querySelector('.rowlist');
+    unused.forEach(i => {
+      const r = el(`<div class="codebox" style="margin-bottom:6px"><b>${esc(i.code)}</b><button>نسخ</button></div>`);
+      r.querySelector('button').onclick = (e)=>copyText(i.code, e.target);
+      lx.appendChild(r);
+    });
+    wrap.appendChild(card);
+  }
+  return wrap;
+}
+
+async function loadStaff(){
+  const { data } = await sb.rpc('kg_staff');
+  S.staff = data || [];
+}
+
 async function loadInvites(){
-  const [inv, prof] = await Promise.all([
-    sb.from('invites').select('*').order('used_at',{nullsFirst:true}).order('code').limit(300),
-    sb.from('profiles').select('id,full_name,role')
-  ]);
-  S.invites = inv.data || [];
-  S.people = {};
-  (prof.data || []).forEach(p => { S.people[p.id] = p; });
+  const { data } = await sb.from('invites').select('*').order('code').limit(400);
+  S.invites = data || [];
 }
 
 /* ================= push ================= */
@@ -827,7 +1164,7 @@ function render(){
     const nav = el('<nav class="tabs"></nav>');
     tabs.forEach(t=>{
       const b = el(`<button ${S.tab===t.k?'aria-current="page"':''}>${ICONS[t.i]}<span>${t.l}</span></button>`);
-      b.onclick = async ()=>{ S.tab=t.k; if(t.k==='admin'&&!S.invites.length) await loadInvites(); render(); };
+      b.onclick = async ()=>{ S.tab=t.k; if(t.k==='admin'){ if(!S.invites.length) await loadInvites(); if(!S.staff.length) await loadStaff(); } render(); };
       nav.appendChild(b);
     });
     app.appendChild(nav);
