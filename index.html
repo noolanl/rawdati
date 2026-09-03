@@ -1402,18 +1402,44 @@ function classSheet(c){
 /* ---------- staff ---------- */
 function adminStaff(){
   const wrap = el('<div style="display:flex;flex-direction:column;gap:12px"></div>');
-  const add = el('<button class="btn">إنشاء رمز معلمة</button>');
-  add.onclick = async () => {
-    const { data, error } = await sb.rpc('create_invite', { p_role:'teacher', p_child:null, p_label:'معلمة', p_max:1 });
-    if(error){ toast('تعذّر الإنشاء: '+error.message); return; }
-    const row = Array.isArray(data) ? data[0] : data;
-    await loadInvites();
-    openSheet(`<h3>رمز معلمة جديد</h3>
-      <p class="help">أعطي هذا الرمز للمعلمة لتسجّل حسابها. يُستخدم مرة واحدة.</p>
-      <div class="codebox"><b>${esc(row.code)}</b><button id="sp">نسخ</button></div>
-      <button class="btn" id="sd">تم</button>`);
-    sheetPanel.querySelector('#sp').onclick = (e)=>copyText(row.code, e.target);
-    sheetPanel.querySelector('#sd').onclick = ()=>{ closeSheet(); render(); };
+  const add = el('<button class="btn">إنشاء رمز دخول</button>');
+  add.onclick = () => {
+    openSheet(`
+      <h3>رمز دخول جديد</h3>
+      <p class="help">اختاري الصلاحية. الرمز يُستخدم مرة واحدة.</p>
+      <div class="field"><label for="ir">الصلاحية</label>
+        <select id="ir">
+          <option value="teacher">معلمة — ترى فصلها فقط</option>
+          <option value="admin">مديرة — ترى الإدارة كاملة</option>
+        </select></div>
+      <div id="irmsg"></div>
+      <button class="btn" id="irgo">إنشاء</button>
+      <button class="btn soft sm" id="irx">إلغاء</button>
+    `);
+    sheetPanel.querySelector('#irx').onclick = closeSheet;
+    sheetPanel.querySelector('#irgo').onclick = async (e) => {
+      const role = sheetPanel.querySelector('#ir').value;
+      e.target.disabled = true; e.target.textContent = 'جارٍ الإنشاء…';
+      const label = role === 'admin' ? 'مديرة الروضة' : 'معلمة';
+      const pre = String((S.kg && S.kg.slug) || 'KG').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8) || 'KG';
+      const rnd = Math.random().toString(36).slice(2,6).toUpperCase();
+      const code = pre + '-' + (role === 'admin' ? 'A' : 'T') + rnd;
+      const r = await safe(sb.from('invites').insert({
+        code, kindergarten_id: S.kg.id, role, child_id: null, label
+      }).select().single());
+      if(!r || r.error || !r.data){
+        sheetPanel.querySelector('#irmsg').innerHTML = '<div class="err">تعذّر الإنشاء.</div>';
+        e.target.disabled = false; e.target.textContent = 'إنشاء'; return;
+      }
+      const row = r.data;
+      await loadInvites();
+      openSheet(`<h3>رمز ${esc(label)}</h3>
+        <p class="help">أعطي هذا الرمز لصاحبته لتسجّل حسابها. يُستخدم مرة واحدة.</p>
+        <div class="codebox"><b>${esc(row.code)}</b><button id="sp">نسخ</button></div>
+        <button class="btn" id="sd">تم</button>`);
+      sheetPanel.querySelector('#sp').onclick = (ev)=>copyText(row.code, ev.target);
+      sheetPanel.querySelector('#sd').onclick = ()=>{ closeSheet(); render(); };
+    };
   };
   wrap.appendChild(add);
 
@@ -1434,8 +1460,14 @@ function adminStaff(){
   if(unused.length){
     const card = el('<div class="card"><h3>رموز غير مستخدمة</h3><div class="rowlist"></div></div>');
     const lx = card.querySelector('.rowlist');
+    const roleLabel = { admin:'مديرة', teacher:'معلمة' };
     unused.forEach(i => {
-      const r = el(`<div class="codebox" style="margin-bottom:6px"><b>${esc(i.code)}</b><button>نسخ</button></div>`);
+      const r = el(`<div class="codebox" style="margin-bottom:6px">
+        <span style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0">
+          <b>${esc(i.code)}</b>
+          <span class="used">${esc(roleLabel[i.role] || i.role)}</span>
+        </span>
+        <button>نسخ</button></div>`);
       r.querySelector('button').onclick = (e)=>copyText(i.code, e.target);
       lx.appendChild(r);
     });
