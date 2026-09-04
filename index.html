@@ -2053,7 +2053,7 @@ function viewSettings(){
   const act = el(`<div class="field"><label for="ac">الأنشطة والصور</label>
     <select id="ac">
       <option value="instant" ${S.notif.activities==='instant'?'selected':''}>تنبيه فوري لكل نشاط</option>
-      <option value="daily" ${S.notif.activities==='daily'?'selected':''}>ملخّص واحد في نهاية اليوم</option>
+      <option value="daily" ${S.notif.activities==='daily'?'selected':''}>ملخّص واحد الساعة ٦ مساءً</option>
       <option value="off" ${S.notif.activities==='off'?'selected':''}>بدون تنبيه</option>
     </select></div>`);
   act.querySelector('#ac').onchange = async (e) => {
