@@ -338,7 +338,7 @@ const S = {
   pickups:{}, notif:null, consentGiven:false, report:null, hasV2:true,
   brand:null, pending:new Set(), resets:[], isOwner:false, tenants:[],
   busTrip:(Number(new Date().toLocaleString('en-GB',{hour:'2-digit',hour12:false,timeZone:'Asia/Riyadh'})) < 11 ? 'am' : 'pm'),
-  busRoster:[], busRoute:null, myBus:{}
+  busRoster:[], busRoute:null, myBus:{}, preview:null
 };
 
 const el = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
@@ -588,6 +588,17 @@ async function refresh(){
     S.myBus = {};
     if(mb) (mb.data||[]).forEach(r => S.myBus[r.child_id + '|' + r.trip] = r);
   }
+  // previewing another role: borrow the data that role would see
+  if(S.preview === 'parent'){
+    S.myChildren = S.children.slice(0, 1);
+    S.myBus = {};
+    const ids = S.myChildren.map(c => c.id);
+    if(ids.length){
+      const bl = await safe(sb.from('bus_logs').select('*').eq('day', today()).in('child_id', ids));
+      if(bl) (bl.data||[]).forEach(r => S.myBus[r.child_id + '|' + r.trip] = r);
+    }
+  }
+  if(S.preview === 'bus') await loadBusRoster();
   if(S.profile.role !== 'parent'){
     const { data: lk } = await sb.rpc('children_with_push');
     S.linked = new Set((lk || []).map(r => (typeof r === 'string' ? r : r.children_with_push)));
@@ -671,6 +682,21 @@ function pickupOf(childId, day){ return S.pickups[childId + '|' + (day||today())
 /* ================= bus ================= */
 const BUS_TRIPS = { am:'رحلة الصباح', pm:'رحلة العودة' };
 const ROLE_AR = { admin:'مديرة', teacher:'معلمة', bus:'مرافقة الحافلة', parent:'ولي أمر' };
+// the platform owner can look at the app through another role's eyes.
+// this only changes what is DRAWN — the database still answers as him.
+function actingRole(){ return S.preview || S.profile.role; }
+// in preview nothing may be written — the owner is not really this person
+function previewBlock(){
+  if(!S.preview) return false;
+  toast('معاينة فقط — لا يمكن التسجيل من هنا');
+  return true;
+}
+async function setPreview(role){
+  S.preview = role;
+  S.tab = null; S.busRoute = null; S.adminTab = 'overview';
+  await refresh();
+  render();
+}
 function busState(r){
   if(!r || !r.boarded_at) return 'none';
   return r.arrived_at ? 'arrived' : 'boarded';
@@ -738,6 +764,7 @@ function viewRoster(){
       <span class="check">${ICONS.check}</span>
     </button>`);
     b.onclick = async () => {
+      if(previewBlock()) return;
       b.classList.add('busy');
       const want = nextState(statusOf(k.id).k);
       let failedOffline = false;
@@ -785,9 +812,9 @@ function viewRoster(){
 
   const acts = el('<div style="display:flex;flex-direction:column;gap:9px"></div>');
   const a1 = el(`<button class="btn blue">${ICONS.photo} نشر نشاط وصور</button>`);
-  a1.onclick = () => composer('activity');
+  a1.onclick = () => { if(!previewBlock()) composer('activity'); };
   const a2 = el(`<button class="btn soft">${ICONS.megaphone} إرسال إعلان</button>`);
-  a2.onclick = () => composer('announcement');
+  a2.onclick = () => { if(!previewBlock()) composer('announcement'); };
   acts.append(a1,a2);
   wrap.appendChild(acts);
   return wrap;
@@ -857,6 +884,7 @@ function viewBus(){
       <span class="check">${st==='arrived' ? ICONS.check : ICONS.car}</span>
     </button>`);
     b.onclick = async () => {
+      if(previewBlock()) return;
       b.classList.add('busy');
       const r = await safe(sb.rpc('bus_mark', { p_child: k.child_id, p_trip: S.busTrip }));
       b.classList.remove('busy');
@@ -996,11 +1024,11 @@ function viewParent(){
     const acts = el('<div class="actions2"></div>');
     if(!absenceOf(c.id, today()) || !absenceOf(c.id, dayOffset(1))){
       const b = el(`<button class="btn soft sm">إبلاغ عن غياب</button>`);
-      b.onclick = () => absenceSheet(c);
+      b.onclick = () => { if(!previewBlock()) absenceSheet(c); };
       acts.appendChild(b);
     }
     const pb = el(`<button class="btn soft sm">${pk?'تغيير المستلم':'من سيستلم الطفل؟'}</button>`);
-    pb.onclick = () => pickupSheet(c);
+    pb.onclick = () => { if(!previewBlock()) pickupSheet(c); };
     acts.appendChild(pb);
     wrap.appendChild(acts);
   });
@@ -1639,6 +1667,22 @@ async function loadTenants(){
 function viewPlatform(){
   const wrap = el('<div style="display:flex;flex-direction:column;gap:14px"></div>');
 
+  // see the app the way each role sees it, without making an account for each
+  const pv = el(`<div class="card"><h3>معاينة الأدوار</h3>
+    <p class="help">افتح التطبيق بعين أي دور. البيانات حقيقية، لكن كل أزرار التسجيل معطّلة — لن تُرسل إشعارات ولن يتغيّر شيء.</p></div>`);
+  const grid = el('<div class="actions2" style="flex-wrap:wrap"></div>');
+  [['teacher','معلمة'],['bus','مرافقة الحافلة'],['parent','ولي أمر']].forEach(([r,l]) => {
+    const b = el(`<button class="btn soft sm" style="flex:1 1 30%">${esc(l)}</button>`);
+    b.onclick = async () => {
+      if(r === 'parent' && !S.children.length){ toast('أضف طفلًا أولًا لمعاينة شاشة ولي الأمر'); return; }
+      if(r === 'bus' && !S.children.some(c => c.rides_bus)){ toast('علّم طفلًا واحدًا على الأقل بأنه يركب الحافلة'); return; }
+      await setPreview(r);
+    };
+    grid.appendChild(b);
+  });
+  pv.appendChild(grid);
+  wrap.appendChild(pv);
+
   const add = el('<button class="btn">إضافة روضة جديدة</button>');
   add.onclick = newTenantSheet;
   wrap.appendChild(add);
@@ -1983,8 +2027,8 @@ async function loadResets(){
 /* ================= settings ================= */
 function viewSettings(){
   const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
-  const parent = S.profile.role === 'parent';
-  const busOnly = S.profile.role === 'bus';
+  const parent = actingRole() === 'parent';
+  const busOnly = actingRole() === 'bus';
 
   // --- notifications ---
   const card = el(`<div class="card"><h3>الإشعارات</h3></div>`);
@@ -2158,14 +2202,15 @@ async function checkPushState(){
 
 /* ================= shell ================= */
 function render(){
-  const staff = S.profile.role==='admin' || S.profile.role==='teacher';
-  const isBus = S.profile.role==='bus';
+  const role = actingRole();
+  const staff = role==='admin' || role==='teacher';
+  const isBus = role==='bus';
   const tabs = (staff
-    ? [{k:'roster',l:'الفصل',i:'users'}, {k:'feed',l:'الأخبار',i:'home'}].concat(S.profile.role==='admin'?[{k:'admin',l:'الإدارة',i:'chart'}]:[])
+    ? [{k:'roster',l:'الفصل',i:'users'}, {k:'feed',l:'الأخبار',i:'home'}].concat(role==='admin'?[{k:'admin',l:'الإدارة',i:'chart'}]:[])
     : isBus
     ? [{k:'bus',l:'الحافلة',i:'car'}]
     : [{k:'home',l:'طفلي',i:'home'}]
-  ).concat(S.isOwner ? [{k:'platform',l:'المنصة',i:'chart'}] : [])
+  ).concat(S.isOwner && !S.preview ? [{k:'platform',l:'المنصة',i:'chart'}] : [])
    .concat([{k:'settings',l:'الإعدادات',i:'gear'}]);
   if(!S.tab || !tabs.find(t=>t.k===S.tab)) S.tab = tabs[0].k;
 
@@ -2184,7 +2229,15 @@ function render(){
   app.appendChild(top);
 
   const main = el('<main></main>');
-  if(S.tab !== 'settings' && !isBus){
+  if(S.preview){
+    const pv = el(`<div class="notif info">
+      <div class="t"><b>معاينة كـ ${esc(ROLE_AR[S.preview]||S.preview)}</b><span>هذا عرض تجريبي — البيانات حقيقية والأزرار معطّلة.</span></div>
+      <button type="button">خروج</button>
+    </div>`);
+    pv.querySelector('button').onclick = ()=>setPreview(null);
+    main.appendChild(pv);
+  }
+  if(S.tab !== 'settings' && !isBus && !S.preview){
     const banner = pushBanner();
     if(banner) main.appendChild(banner);
   }
