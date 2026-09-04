@@ -1465,6 +1465,207 @@ function importSheet(){
   };
 }
 
+
+/* ================= parent card: one image the director sends on WhatsApp ================= */
+const CARD_W = 1080, CARD_H = 1920;
+
+function cardPalette(){
+  const t = (S.kg && S.kg.theme) || {};
+  return {
+    pink: t.pink || '#E0206E', blue: t.blue || '#24A7E1',
+    green: t.green || '#7FB227', yellow: t.yellow || '#EFB513'
+  };
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+
+// wraps Arabic properly because the browser measures the shaped text
+function wrapLines(ctx, text, maxW){
+  const words = String(text).split(' ');
+  const lines = []; let line = '';
+  words.forEach(w => {
+    const t = line ? line + ' ' + w : w;
+    if(ctx.measureText(t).width > maxW && line){ lines.push(line); line = w; }
+    else line = t;
+  });
+  if(line) lines.push(line);
+  return lines;
+}
+
+function drawParentCard(ctx, d){
+  const P = cardPalette();
+  const R = CARD_W - 90;          // right margin (RTL origin)
+  ctx.textAlign = 'right';
+  ctx.direction = 'rtl';
+
+  ctx.fillStyle = '#FBF7F9';
+  ctx.fillRect(0,0,CARD_W,CARD_H);
+
+  // brand mark: the four dots
+  const dot = 30, gap = 10, dx = R - (dot*2+gap), dy = 96;
+  const cols = [P.pink,P.blue,P.yellow,P.green];
+  [[0,0],[1,0],[0,1],[1,1]].forEach(([cx,cy],i)=>{
+    ctx.fillStyle = cols[i];
+    ctx.beginPath();
+    ctx.arc(dx+cx*(dot+gap)+dot/2, dy+cy*(dot+gap)+dot/2, dot/2, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = '#241820';
+  ctx.font = '700 44px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText(d.kgName, dx - 24, dy + dot + 12);
+
+  // heading
+  ctx.fillStyle = P.pink;
+  ctx.font = '600 30px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText('بطاقة ولي الأمر', R, 236);
+
+  ctx.fillStyle = '#241820';
+  ctx.font = '700 68px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText(d.childName, R, 320);
+
+  ctx.fillStyle = '#6E6069';
+  ctx.font = '400 32px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText(d.className ? 'فصل ' + d.className : 'تابع يوم طفلك أولًا بأول', R, 376);
+
+  // the code — the one thing that must be unmistakable
+  const bx = 90, by = 430, bw = CARD_W-180, bh = 260;
+  ctx.fillStyle = '#FDE9F1';
+  roundRect(ctx,bx,by,bw,bh,36); ctx.fill();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#A5124F';
+  ctx.font = '600 30px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText('رمز الدخول', CARD_W/2, by + 74);
+
+  ctx.fillStyle = '#241820';
+  ctx.font = '700 96px "IBM Plex Mono", ui-monospace, monospace';
+  ctx.fillText(d.code, CARD_W/2, by + 186);
+
+  // the link
+  ctx.fillStyle = '#0E6E99';
+  ctx.font = '600 44px "IBM Plex Mono", ui-monospace, monospace';
+  ctx.fillText(d.host, CARD_W/2, by + bh + 92);
+  ctx.fillStyle = '#6E6069';
+  ctx.font = '400 28px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText('افتح هذا الرابط من جوالك', CARD_W/2, by + bh + 140);
+
+  // steps
+  ctx.textAlign = 'right';
+  let y = 880;
+  const steps = [
+    ['افتح الرابط أعلاه من متصفح جوالك', ''],
+    ['أضِف التطبيق إلى شاشتك الرئيسية',
+     'آيفون: زر المشاركة ⬆ ← «إضافة إلى الشاشة الرئيسية»\nأندرويد: قائمة ⋮ ← «تثبيت التطبيق»'],
+    ['افتحه من الشاشة الرئيسية وسجّل برقم جوالك', 'ثم أدخل رمز الدخول المكتوب أعلاه'],
+    ['فعّل الإشعارات عندما يطلبها', 'بدونها لن يصلك تنبيه وصول طفلك']
+  ];
+  steps.forEach(([title, sub], i) => {
+    const cy = y + 26;
+    ctx.fillStyle = P.pink;
+    ctx.beginPath(); ctx.arc(R - 27, cy, 27, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.font = '700 30px "IBM Plex Sans Arabic", sans-serif';
+    ctx.fillText(String(i+1), R - 27, cy + 11);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#241820';
+    ctx.font = '600 38px "IBM Plex Sans Arabic", sans-serif';
+    ctx.fillText(title, R - 76, cy + 12);
+    y += 70;
+
+    if(sub){
+      ctx.fillStyle = '#6E6069';
+      ctx.font = '400 30px "IBM Plex Sans Arabic", sans-serif';
+      sub.split('\n').forEach(part => {
+        wrapLines(ctx, part, CARD_W - 260).forEach(ln => {
+          ctx.fillText(ln, R - 76, y + 14); y += 46;
+        });
+      });
+    }
+    y += 52;
+  });
+
+  // the reassurance a parent actually wants
+  const nx = 90, nw = CARD_W-180, nh = 150;
+  const ny = CARD_H - 300;
+  ctx.fillStyle = '#EFF7E2';
+  roundRect(ctx,nx,ny,nw,nh,28); ctx.fill();
+  ctx.fillStyle = '#4F7212';
+  ctx.font = '600 32px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText('خصوصية طفلك', R - 30, ny + 60);
+  ctx.font = '400 27px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText('ترى طفلك أنت فقط، ولا تُنشر صوره إلا بموافقتك.', R - 30, ny + 106);
+
+  ctx.fillStyle = '#9C8F97';
+  ctx.font = '400 26px "IBM Plex Sans Arabic", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('الرمز خاص بطفلك — لا تشاركه خارج العائلة', CARD_W/2, CARD_H - 96);
+}
+
+async function parentCardSheet(child, code){
+  const cls = S.classes.find(x=>x.id===child.class_id);
+  openSheet(`
+    <h3>بطاقة ولي الأمر</h3>
+    <p class="help">صورة جاهزة لإرسالها لأهل ${esc(first(child.full_name))} على واتساب — فيها الرمز وطريقة التثبيت.</p>
+    <div id="cardwrap" style="display:flex;justify-content:center"><div class="spin"></div></div>
+    <div id="cardmsg"></div>
+    <button class="btn" id="cardsave">حفظ الصورة</button>
+    <button class="btn soft sm" id="cardshare" style="display:none">مشاركة</button>
+    <button class="btn soft sm" id="cardx">إغلاق</button>
+  `);
+  sheetPanel.querySelector('#cardx').onclick = closeSheet;
+
+  const cv = document.createElement('canvas');
+  cv.width = CARD_W; cv.height = CARD_H;
+  cv.style.cssText = 'width:100%;max-width:280px;border-radius:16px;box-shadow:var(--shadow-sm)';
+  const ctx = cv.getContext('2d');
+
+  try { if(document.fonts && document.fonts.ready) await document.fonts.ready; } catch(_){}
+  drawParentCard(ctx, {
+    kgName: brandName(),
+    childName: child.full_name,
+    className: cls ? cls.name : '',
+    code: code,
+    host: location.host
+  });
+
+  const wrap = sheetPanel.querySelector('#cardwrap');
+  if(wrap){ wrap.innerHTML = ''; wrap.appendChild(cv); }
+
+  const fname = 'rawdati-' + String(code).replace(/[^A-Za-z0-9-]/g,'') + '.png';
+  const toBlob = () => new Promise(res => cv.toBlob(res, 'image/png'));
+
+  const saveBtn = sheetPanel.querySelector('#cardsave');
+  saveBtn.onclick = async () => {
+    const blob = await toBlob();
+    if(!blob){ sheetPanel.querySelector('#cardmsg').innerHTML = '<div class="err">تعذّر إنشاء الصورة.</div>'; return; }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    toast('حُفظت الصورة');
+  };
+
+  // on a phone, sharing straight to WhatsApp beats downloading
+  const shareBtn = sheetPanel.querySelector('#cardshare');
+  if(navigator.canShare){
+    shareBtn.style.display = '';
+    shareBtn.onclick = async () => {
+      const blob = await toBlob();
+      if(!blob) return;
+      const file = new File([blob], fname, { type:'image/png' });
+      if(!navigator.canShare({ files:[file] })){ toast('المشاركة غير مدعومة على هذا الجهاز'); return; }
+      try { await navigator.share({ files:[file], title:'بطاقة ولي الأمر' }); } catch(_){}
+    };
+  }
+}
+
 function childSheet(c){
   const cls = S.classes.find(x=>x.id===c.class_id);
   const inv = S.invites.find(i => i.child_id === c.id);
@@ -1484,6 +1685,7 @@ function childSheet(c){
     </div>
     ${inv ? `<div><p class="help" style="margin-bottom:6px">رمز أولياء الأمور — استُخدم ${inv.uses||0} من ${inv.max_uses||1}</p>
       <div class="codebox"><b>${esc(inv.code)}</b><button id="cp">نسخ</button></div></div>` : ''}
+    ${inv ? '<button class="btn blue sm" id="ecard">بطاقة ولي الأمر (صورة)</button>' : ''}
     <div id="gbox"><p class="help">جارٍ تحميل أولياء الأمور…</p></div>
     <div id="emsg"></div>
     <button class="btn" id="esave">حفظ</button>
@@ -1491,6 +1693,7 @@ function childSheet(c){
     <button class="btn soft sm" id="ecancel">إغلاق</button>
   `);
   if(inv) sheetPanel.querySelector('#cp').onclick = (e)=>copyText(inv.code, e.target);
+  if(inv) sheetPanel.querySelector('#ecard').onclick = ()=>parentCardSheet(c, inv.code);
   sheetPanel.querySelector('#ecancel').onclick = closeSheet;
   const busSw = sheetPanel.querySelector('#ebus');
   busSw.onclick = () => {
