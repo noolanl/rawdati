@@ -151,6 +151,9 @@ main{flex:1;padding:16px 16px 100px;display:flex;flex-direction:column;gap:16px}
 .kid.left .check{background:var(--yellow);border-color:var(--yellow);color:#fff}
 .check svg{width:14px;height:14px}
 .kid.busy{opacity:.5;pointer-events:none}
+.kid.riding{background:var(--blue-soft);box-shadow:none}
+.kid.riding .face{background:#fff;color:var(--blue-ink)}
+.kid.riding .check{background:var(--blue);border-color:var(--blue);color:#fff}
 .bell{font-size:11px;vertical-align:middle;opacity:.85}
 
 /* ===== parent hero ===== */
@@ -333,7 +336,9 @@ const S = {
   channel:null, linked:new Set(), pushOn:false,
   absences:{}, staff:[], adminTab:'overview', childQuery:'', feedScope:'all',
   pickups:{}, notif:null, consentGiven:false, report:null, hasV2:true,
-  brand:null, pending:new Set(), resets:[], isOwner:false, tenants:[]
+  brand:null, pending:new Set(), resets:[], isOwner:false, tenants:[],
+  busTrip:(Number(new Date().toLocaleString('en-GB',{hour:'2-digit',hour12:false,timeZone:'Asia/Riyadh'})) < 11 ? 'am' : 'pm'),
+  busRoster:[], busRoute:null, myBus:{}
 };
 
 const el = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
@@ -556,8 +561,14 @@ async function loadCore(){
 }
 
 async function refresh(){
+  if(S.profile && S.profile.role === 'bus'){
+    await loadBusRoster();
+    S.children = []; S.attendance = {}; S.posts = []; S.absences = {}; S.pickups = {};
+    S.linked = new Set();
+    return;
+  }
   const [ch, at, po, ab] = await Promise.all([
-    sb.from('children').select('id,full_name,gender,class_id,active').eq('active', true).order('full_name'),
+    sb.from('children').select('id,full_name,gender,class_id,active,rides_bus,bus_route').eq('active', true).order('full_name'),
     sb.from('attendance').select('*').eq('day', today()),
     sb.from('posts').select('*').order('created_at',{ascending:false}).limit(30),
     sb.from('absences').select('*').gte('day', today()).lte('day', dayOffset(7))
@@ -571,7 +582,12 @@ async function refresh(){
   const pk = await safe(sb.from('pickups').select('*').gte('day', today()).lte('day', dayOffset(7)));
   S.pickups = {};
   if(pk) (pk.data||[]).forEach(r => S.pickups[r.child_id + '|' + r.day] = r);
-  if(S.profile.role === 'parent') S.myChildren = S.children;
+  if(S.profile.role === 'parent'){
+    S.myChildren = S.children;
+    const mb = await safe(sb.rpc('my_bus_today'));
+    S.myBus = {};
+    if(mb) (mb.data||[]).forEach(r => S.myBus[r.child_id + '|' + r.trip] = r);
+  }
   if(S.profile.role !== 'parent'){
     const { data: lk } = await sb.rpc('children_with_push');
     S.linked = new Set((lk || []).map(r => (typeof r === 'string' ? r : r.children_with_push)));
@@ -591,6 +607,10 @@ function subscribe(){
     })
     .on('postgres_changes',{event:'*',schema:'public',table:'absences'}, async () => {
       await refresh(); render();
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'bus_logs'}, async () => {
+      if(S.profile.role === 'bus') { await loadBusRoster(); render(); }
+      else if(S.profile.role === 'parent'){ await refresh(); render(); }
     })
     .subscribe();
 }
@@ -647,6 +667,25 @@ window.addEventListener('online', () => flushQueue());
 
 function absenceOf(childId, day){ return S.absences[childId + '|' + (day||today())] || null; }
 function pickupOf(childId, day){ return S.pickups[childId + '|' + (day||today())] || null; }
+
+/* ================= bus ================= */
+const BUS_TRIPS = { am:'رحلة الصباح', pm:'رحلة العودة' };
+const ROLE_AR = { admin:'مديرة', teacher:'معلمة', bus:'مرافقة الحافلة', parent:'ولي أمر' };
+function busState(r){
+  if(!r || !r.boarded_at) return 'none';
+  return r.arrived_at ? 'arrived' : 'boarded';
+}
+function busLabel(trip, st, t){
+  if(st==='none') return trip==='am' ? 'لم يركب بعد' : 'لم يركب بعد';
+  if(trip==='am') return st==='boarded' ? 'في الحافلة · ' + fmtTime(t) : 'وصل الروضة · ' + fmtTime(t);
+  return st==='boarded' ? 'في الحافلة · ' + fmtTime(t) : 'وصل المنزل · ' + fmtTime(t);
+}
+async function loadBusRoster(){
+  const r = await safe(sb.rpc('bus_roster', { p_trip: S.busTrip }));
+  S.busRoster = (r && r.data) || [];
+  const routes = [...new Set(S.busRoster.map(x=>x.bus_route).filter(Boolean))];
+  if(S.busRoute && !routes.includes(S.busRoute)) S.busRoute = null;
+}
 
 function statusOf(childId){
   const a = S.attendance[childId];
@@ -754,6 +793,89 @@ function viewRoster(){
   return wrap;
 }
 
+
+/* ================= bus escort: the whole app for her ================= */
+function viewBus(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+
+  // which trip
+  const seg = el(`<div class="segmented">
+    <button aria-selected="${S.busTrip==='am'}">رحلة الصباح</button>
+    <button aria-selected="${S.busTrip==='pm'}">رحلة العودة</button>
+  </div>`);
+  seg.children[0].onclick = async ()=>{ if(S.busTrip==='am') return; S.busTrip='am'; await loadBusRoster(); render(); };
+  seg.children[1].onclick = async ()=>{ if(S.busTrip==='pm') return; S.busTrip='pm'; await loadBusRoster(); render(); };
+  wrap.appendChild(seg);
+
+  // which bus, when the kindergarten runs more than one
+  const routes = [...new Set(S.busRoster.map(x=>x.bus_route).filter(Boolean))];
+  if(routes.length > 1){
+    const chips = el('<div class="chips"></div>');
+    const all = el(`<button class="chip" aria-pressed="${!S.busRoute}">الكل</button>`);
+    all.onclick = ()=>{ S.busRoute=null; render(); };
+    chips.appendChild(all);
+    routes.forEach(rt => {
+      const b = el(`<button class="chip" aria-pressed="${rt===S.busRoute}">${esc(rt)}</button>`);
+      b.onclick = ()=>{ S.busRoute=rt; render(); };
+      chips.appendChild(b);
+    });
+    wrap.appendChild(chips);
+  }
+
+  const kids = S.busRoster.filter(k => !S.busRoute || k.bus_route === S.busRoute);
+  const onBus = kids.filter(k => busState(k)==='boarded').length;
+  const done  = kids.filter(k => busState(k)==='arrived').length;
+  const absN  = kids.filter(k => k.absent && busState(k)==='none').length;
+  const waiting = kids.length - onBus - done - absN;
+
+  wrap.appendChild(el(`<div class="counter">
+    <div class="pill blue"><b class="num">${onBus}</b><span>في الحافلة</span></div>
+    <div class="pill ok"><b class="num">${done}</b><span>${S.busTrip==='am'?'وصل الروضة':'وصل المنزل'}</span></div>
+    <div class="pill no"><b class="num">${waiting}</b><span>لم يركب</span></div>
+    <div class="pill left"><b class="num">${absN}</b><span>غياب مُبلّغ</span></div>
+  </div>`));
+
+  // the one thing that matters: nobody left on the bus
+  if(kids.length && onBus === 0 && done > 0 && waiting === 0){
+    wrap.appendChild(el(`<div class="ok">✅ الحافلة فارغة — كل الأطفال ${S.busTrip==='am'?'وصلوا الروضة':'وصلوا منازلهم'}.</div>`));
+  } else if(onBus > 0){
+    wrap.appendChild(el(`<div class="absent-note"><span class="t">لا يزال <b>${onBus}</b> ${onBus===1?'طفل':'أطفال'} في الحافلة.</span></div>`));
+  }
+
+  const roster = el('<div class="roster"></div>');
+  if(!kids.length){
+    roster.appendChild(el('<div class="empty">لا يوجد أطفال مسجّلين في الحافلة. تراجع الإدارة قائمة الأطفال.</div>'));
+  }
+  kids.forEach(k => {
+    const st = busState(k);
+    const t  = st==='arrived' ? k.arrived_at : k.boarded_at;
+    const cls = st==='boarded' ? 'riding' : st==='arrived' ? 'present' : (k.absent ? 'absent' : '');
+    const label = k.absent && st==='none' ? 'غياب مُبلّغ اليوم' : busLabel(S.busTrip, st, t);
+    const b = el(`<button class="kid ${cls}">
+      <span class="face">${esc(initial(k.full_name))}</span>
+      <span class="nm"><b>${esc(k.full_name)}</b><span>${esc(label)}${k.bus_route && routes.length>1 ? ' · '+esc(k.bus_route) : ''}</span></span>
+      <span class="check">${st==='arrived' ? ICONS.check : ICONS.car}</span>
+    </button>`);
+    b.onclick = async () => {
+      b.classList.add('busy');
+      const r = await safe(sb.rpc('bus_mark', { p_child: k.child_id, p_trip: S.busTrip }));
+      b.classList.remove('busy');
+      if(!r || !r.data){ toast('تعذّر التسجيل — تأكدي من الاتصال'); return; }
+      const row = r.data;
+      k.boarded_at = row.boarded_at; k.arrived_at = row.arrived_at;
+      const s2 = busState(k);
+      if(s2 !== 'none') notifyServer({ type:'bus', child_id: k.child_id, trip: S.busTrip });
+      toast(s2==='boarded' ? 'ركب ' + first(k.full_name) + ' الحافلة — أُشعر ولي الأمر'
+          : s2==='arrived' ? (S.busTrip==='am' ? 'وصل ' : 'وصل ') + first(k.full_name) + (S.busTrip==='am'?' الروضة':' المنزل') + ' — أُشعر ولي الأمر'
+          : 'تم إلغاء التسجيل');
+      render();
+    };
+    roster.appendChild(b);
+  });
+  wrap.appendChild(roster);
+  return wrap;
+}
+
 function composer(kind){
   const isAct = kind==='activity';
   openSheet(`
@@ -839,6 +961,20 @@ function viewParent(){
         toast('تم إلغاء البلاغ'); render();
       };
       wrap.appendChild(n);
+    });
+
+    // the bus, when the child rides it
+    ['am','pm'].forEach(tp => {
+      const r = S.myBus[c.id + '|' + tp];
+      const st = busState(r);
+      if(st === 'none') return;
+      const t = st==='arrived' ? r.arrived_at : r.boarded_at;
+      const txt = tp==='am'
+        ? (st==='boarded' ? first(c.full_name)+' في الحافلة متجهًا للروضة' : first(c.full_name)+' وصل الروضة بالحافلة')
+        : (st==='boarded' ? first(c.full_name)+' في الحافلة عائدًا للمنزل' : first(c.full_name)+' وصل المنزل بأمان');
+      wrap.appendChild(el(`<div class="pickup-note">
+        <span class="t">${ICONS.car} ${esc(txt)} · ${esc(fmtTime(t))}</span>
+      </div>`));
     });
 
     // who is collecting the child today
@@ -1310,6 +1446,14 @@ function childSheet(c){
     <div class="field"><label for="en">الاسم</label><input id="en" value="${esc(c.full_name)}"></div>
     <div class="field"><label for="ec">الفصل</label>
       <select id="ec">${S.classes.map(x=>`<option value="${x.id}" ${x.id===c.class_id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
+    <div class="switchrow">
+      <span class="t"><b>يركب الحافلة</b><span>تراه مرافقة الحافلة وتسجّل ركوبه ووصوله</span></span>
+      <button class="sw" id="ebus" role="switch" aria-checked="${c.rides_bus?'true':'false'}"></button>
+    </div>
+    <div class="field" id="eroutebox" style="${c.rides_bus?'':'display:none'}">
+      <label for="eroute">اسم الحافلة أو الخط (اختياري)</label>
+      <input id="eroute" placeholder="مثال: حافلة ١ — حي النهضة" value="${esc(c.bus_route||'')}">
+    </div>
     ${inv ? `<div><p class="help" style="margin-bottom:6px">رمز أولياء الأمور — استُخدم ${inv.uses||0} من ${inv.max_uses||1}</p>
       <div class="codebox"><b>${esc(inv.code)}</b><button id="cp">نسخ</button></div></div>` : ''}
     <div id="gbox"><p class="help">جارٍ تحميل أولياء الأمور…</p></div>
@@ -1320,6 +1464,12 @@ function childSheet(c){
   `);
   if(inv) sheetPanel.querySelector('#cp').onclick = (e)=>copyText(inv.code, e.target);
   sheetPanel.querySelector('#ecancel').onclick = closeSheet;
+  const busSw = sheetPanel.querySelector('#ebus');
+  busSw.onclick = () => {
+    const on = busSw.getAttribute('aria-checked') !== 'true';
+    busSw.setAttribute('aria-checked', on ? 'true' : 'false');
+    sheetPanel.querySelector('#eroutebox').style.display = on ? '' : 'none';
+  };
 
   sb.rpc('child_guardians', { p_child: c.id }).then(({data}) => {
     const box = sheetPanel.querySelector('#gbox');
@@ -1340,9 +1490,12 @@ function childSheet(c){
 
   sheetPanel.querySelector('#esave').onclick = async () => {
     const btn = sheetPanel.querySelector('#esave'); btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+    const ridesBus = sheetPanel.querySelector('#ebus').getAttribute('aria-checked') === 'true';
     const { error } = await sb.from('children').update({
       full_name: sheetPanel.querySelector('#en').value.trim(),
-      class_id: sheetPanel.querySelector('#ec').value
+      class_id: sheetPanel.querySelector('#ec').value,
+      rides_bus: ridesBus,
+      bus_route: ridesBus ? (sheetPanel.querySelector('#eroute').value.trim() || null) : null
     }).eq('id', c.id);
     if(error){ sheetPanel.querySelector('#emsg').innerHTML='<div class="err">'+esc(error.message)+'</div>'; btn.disabled=false; btn.textContent='حفظ'; return; }
     await refresh(); closeSheet(); toast('تم الحفظ'); render();
@@ -1410,6 +1563,7 @@ function adminStaff(){
       <div class="field"><label for="ir">الصلاحية</label>
         <select id="ir">
           <option value="teacher">معلمة — ترى فصلها فقط</option>
+          <option value="bus">مرافقة الحافلة — ترى أطفال الحافلة فقط</option>
           <option value="admin">مديرة — ترى الإدارة كاملة</option>
         </select></div>
       <div id="irmsg"></div>
@@ -1420,7 +1574,7 @@ function adminStaff(){
     sheetPanel.querySelector('#irgo').onclick = async (e) => {
       const role = sheetPanel.querySelector('#ir').value;
       e.target.disabled = true; e.target.textContent = 'جارٍ الإنشاء…';
-      const label = role === 'admin' ? 'مديرة الروضة' : 'معلمة';
+      const label = role === 'admin' ? 'مديرة الروضة' : role === 'bus' ? 'مرافقة الحافلة' : 'معلمة';
       const pre = String((S.kg && S.kg.slug) || 'KG').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8) || 'KG';
       const rnd = Math.random().toString(36).slice(2,6).toUpperCase();
       const code = pre + '-' + (role === 'admin' ? 'A' : 'T') + rnd;
@@ -1448,7 +1602,7 @@ function adminStaff(){
     const r = el(`<button class="row">
       <span class="face">${esc(initial(p.full_name))}</span>
       <span class="nm"><b>${esc(p.full_name||'—')}</b><span>${esc(p.phone||'')}</span></span>
-      <span class="tagx ${p.role==='admin'?'full':''}">${p.role==='admin'?'مديرة':'معلمة'}</span>
+      <span class="tagx ${p.role==='admin'?'full':''}">${ROLE_AR[p.role]||'معلمة'}</span>
     </button>`);
     r.onclick = () => staffSheet(p);
     list.appendChild(r);
@@ -1460,7 +1614,7 @@ function adminStaff(){
   if(unused.length){
     const card = el('<div class="card"><h3>رموز غير مستخدمة</h3><div class="rowlist"></div></div>');
     const lx = card.querySelector('.rowlist');
-    const roleLabel = { admin:'مديرة', teacher:'معلمة' };
+    const roleLabel = { admin:'مديرة', teacher:'معلمة', bus:'مرافقة الحافلة' };
     unused.forEach(i => {
       const r = el(`<div class="codebox" style="margin-bottom:6px">
         <span style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0">
@@ -1710,7 +1864,7 @@ function staffSheet(p){
   const self = S.profile && p.id === S.profile.id;
   openSheet(`
     <h3>${esc(p.full_name || '—')}</h3>
-    <p class="help">${esc(p.phone || '')} · ${p.role==='admin'?'مديرة':'معلمة'}</p>
+    <p class="help">${esc(p.phone || '')} · ${ROLE_AR[p.role]||'معلمة'}</p>
     <div id="smsg"></div>
     <button class="btn soft" id="spw">إعادة تعيين كلمة المرور</button>
     ${self || p.role==='admin' ? '' : '<button class="btn soft" id="sdel" style="color:var(--pink)">حذف الحساب نهائيًا</button>'}
@@ -1830,6 +1984,7 @@ async function loadResets(){
 function viewSettings(){
   const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
   const parent = S.profile.role === 'parent';
+  const busOnly = S.profile.role === 'bus';
 
   // --- notifications ---
   const card = el(`<div class="card"><h3>الإشعارات</h3></div>`);
@@ -1872,14 +2027,22 @@ function viewSettings(){
     await safe(sb.rpc('set_notif', { p: S.notif }));
   };
   card.appendChild(quiet);
-  wrap.appendChild(card);
+  if(!busOnly) wrap.appendChild(card);
+
+  if(busOnly){
+    wrap.appendChild(el(`<div class="card"><h3>مرافقة الحافلة</h3>
+      <p class="help">تظهر لك أطفال الحافلة فقط. أول ضغطة تسجّل ركوب الطفل، والثانية تسجّل وصوله، والثالثة تلغي التسجيل إذا ضغطتِ على الطفل الخطأ.</p>
+      <p class="help">ولي الأمر يصله إشعار فوري عند كل ضغطة.</p></div>`));
+  }
 
   // --- device ---
-  const dev = el('<div class="card"><h3>هذا الجهاز</h3></div>');
-  const b = pushBanner();
-  if(b) dev.appendChild(b);
-  else dev.appendChild(el('<p class="help">الإشعارات مفعّلة على هذا الجهاز ✅</p>'));
-  wrap.appendChild(dev);
+  if(!busOnly){
+    const dev = el('<div class="card"><h3>هذا الجهاز</h3></div>');
+    const b = pushBanner();
+    if(b) dev.appendChild(b);
+    else dev.appendChild(el('<p class="help">الإشعارات مفعّلة على هذا الجهاز ✅</p>'));
+    wrap.appendChild(dev);
+  }
 
   // --- privacy (parents) ---
   if(parent){
@@ -1996,8 +2159,11 @@ async function checkPushState(){
 /* ================= shell ================= */
 function render(){
   const staff = S.profile.role==='admin' || S.profile.role==='teacher';
+  const isBus = S.profile.role==='bus';
   const tabs = (staff
     ? [{k:'roster',l:'الفصل',i:'users'}, {k:'feed',l:'الأخبار',i:'home'}].concat(S.profile.role==='admin'?[{k:'admin',l:'الإدارة',i:'chart'}]:[])
+    : isBus
+    ? [{k:'bus',l:'الحافلة',i:'car'}]
     : [{k:'home',l:'طفلي',i:'home'}]
   ).concat(S.isOwner ? [{k:'platform',l:'المنصة',i:'chart'}] : [])
    .concat([{k:'settings',l:'الإعدادات',i:'gear'}]);
@@ -2005,7 +2171,9 @@ function render(){
 
   app.innerHTML = '';
   const cls = S.classes.find(c=>c.id===S.activeClass);
-  const sub = staff && S.tab==='roster' && cls ? 'فصل '+cls.name+' · '+fmtDay(new Date()) : fmtDay(new Date());
+  const sub = staff && S.tab==='roster' && cls ? 'فصل '+cls.name+' · '+fmtDay(new Date())
+            : isBus && S.tab==='bus' ? BUS_TRIPS[S.busTrip] + ' · ' + fmtDay(new Date())
+            : fmtDay(new Date());
 
   const top = el(`<div class="topbar">
     <img class="logo" src="${esc(brandLogo())}" alt="">
@@ -2016,13 +2184,14 @@ function render(){
   app.appendChild(top);
 
   const main = el('<main></main>');
-  if(S.tab !== 'settings'){
+  if(S.tab !== 'settings' && !isBus){
     const banner = pushBanner();
     if(banner) main.appendChild(banner);
   }
   if(S.tab==='settings') main.appendChild(viewSettings());
   else if(S.tab==='platform') main.appendChild(viewPlatform());
   else if(S.tab==='roster') main.appendChild(viewRoster());
+  else if(S.tab==='bus') main.appendChild(viewBus());
   else if(S.tab==='admin') main.appendChild(viewAdmin());
   else if(S.tab==='feed') main.appendChild(buildFeed());
   else main.appendChild(viewParent());
