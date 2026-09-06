@@ -1374,38 +1374,89 @@ function addChildSheet(){
 }
 
 // CSV or pasted rows: الاسم , الفصل , الجنس
+// Which column is which. Order matters: «اسم الحافلة» must not be read as the
+// child's name, and «جوال ولي الأمر» must not be read as a class.
+function headerRole(h){
+  const t = String(h||'').trim();
+  if(!t) return null;
+  if(/حافلة|باص|bus/i.test(t))            return /اسم|خط|رقم|route|no/i.test(t) ? 'route' : 'bus';
+  if(/جوال|هاتف|رقم|phone|mobile/i.test(t)) return 'phone';           // read, never imported
+  if(/فصل|صف|class|group/i.test(t))       return 'cls';
+  if(/جنس|نوع|gender|sex/i.test(t))       return 'gender';
+  if(/اسم|طفل|name|child|student/i.test(t)) return 'name';
+  return null;
+}
+const YES = v => /^(1|نعم|ايوه|أيوه|صح|yes|y|true|✓|✔)$/i.test(String(v||'').trim());
+const MALE = v => /^(m|male|ذكر|ولد|بنين)$/i.test(String(v||'').trim());
+
+function rowsFromMatrix(mat){
+  if(!mat || !mat.length) return [];
+  let idx = { name:0, cls:1, gender:2, bus:-1, route:-1 }, start = 0;
+  const first = mat[0].map(x=>String(x==null?'':x).trim());
+  const roles = first.map(headerRole);
+  if(roles.some(r=>r==='name')){
+    start = 1;
+    idx = { name:-1, cls:-1, gender:-1, bus:-1, route:-1 };
+    roles.forEach((r,i)=>{ if(r && r!=='phone' && idx[r] === -1) idx[r] = i; });
+  }
+  const out = [];
+  for(let i=start;i<mat.length;i++){
+    const p = mat[i].map(x=>String(x==null?'':x).trim());
+    const name = (idx.name>=0 ? p[idx.name] : p[0]) || '';
+    if(!name) continue;
+    if(/^(مثال|example)/i.test(name)) continue;          // skip the template's sample row
+    const bus = idx.bus>=0 ? YES(p[idx.bus]) : false;
+    out.push({
+      name,
+      class:  idx.cls>=0 ? (p[idx.cls]||'') : '',
+      gender: MALE(idx.gender>=0 ? p[idx.gender] : '') ? 'm' : 'f',
+      bus,
+      route:  bus && idx.route>=0 ? (p[idx.route]||'') : ''
+    });
+  }
+  return out;
+}
+
 function parseRows(text){
   const lines = String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
   if(!lines.length) return [];
   const split = (l) => l.includes('\t') ? l.split('\t') : l.split(',');
-  let cols = split(lines[0]).map(x=>x.trim());
-  let start = 0, idx = { name:0, cls:1, gender:2 };
-  const looksLikeHeader = cols.some(c => /^(الاسم|اسم|name|الطفل)$/i.test(c));
-  if(looksLikeHeader){
-    start = 1;
-    cols.forEach((c,i) => {
-      if(/^(الاسم|اسم|name|الطفل)$/i.test(c)) idx.name = i;
-      else if(/^(الفصل|الصف|class|group)$/i.test(c)) idx.cls = i;
-      else if(/^(الجنس|النوع|gender|sex)$/i.test(c)) idx.gender = i;
-    });
+  return rowsFromMatrix(lines.map(l => split(l).map(x=>x.trim())));
+}
+
+// SheetJS, fetched only when someone actually imports a workbook
+let xlsxLib = null;
+function loadXlsx(){
+  if(xlsxLib) return Promise.resolve(xlsxLib);
+  if(window.XLSX){ xlsxLib = window.XLSX; return Promise.resolve(xlsxLib); }
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => { xlsxLib = window.XLSX; res(xlsxLib); };
+    s.onerror = () => rej(new Error('no-xlsx'));
+    document.head.appendChild(s);
+  });
+}
+async function rowsFromWorkbook(file){
+  const XL = await loadXlsx();
+  const wb = XL.read(await file.arrayBuffer(), { type:'array' });
+  // prefer the data sheet; fall back to the first one that has a name column
+  const names = wb.SheetNames;
+  const pick = names.find(n => /طفل|children|بيانات|data/i.test(n)) || names[0];
+  const order = [pick].concat(names.filter(n=>n!==pick));
+  for(const nm of order){
+    const mat = XL.utils.sheet_to_json(wb.Sheets[nm], { header:1, blankrows:false, defval:'' });
+    const rows = rowsFromMatrix(mat);
+    if(rows.length) return rows;
   }
-  const out = [];
-  for(let i=start;i<lines.length;i++){
-    const p = split(lines[i]).map(x=>x.trim());
-    const name = (p[idx.name]||'').trim();
-    if(!name) continue;
-    const graw = (p[idx.gender]||'').trim();
-    const gender = /^(m|ذكر|ولد|بنين)$/i.test(graw) ? 'm' : 'f';
-    out.push({ name, class: (p[idx.cls]||'').trim(), gender });
-  }
-  return out;
+  return [];
 }
 
 function importSheet(){
   openSheet(`
     <h3>استيراد قائمة الأطفال</h3>
-    <p class="help">الأعمدة: الاسم، الفصل، الجنس (ذكر/أنثى). الفصول غير الموجودة تُنشأ تلقائيًا، ويُصدَر لكل طفل رمز ولي أمر.</p>
-    <div class="field"><label for="if">ملف CSV</label><input id="if" type="file" accept=".csv,text/csv,text/plain"></div>
+    <p class="help">ارفع ملف Excel الجاهز، أو ملف CSV. الأعمدة: اسم الطفل، الفصل، الجنس، يركب الحافلة، اسم الحافلة. الفصول غير الموجودة تُنشأ تلقائيًا، ويُصدَر لكل طفل رمز ولي أمر.</p>
+    <div class="field"><label for="if">ملف Excel أو CSV</label><input id="if" type="file" accept=".xlsx,.xls,.csv,text/csv,text/plain"></div>
     <div class="field"><label for="it">أو الصق الصفوف هنا</label>
       <textarea id="it" rows="5" placeholder="الاسم,الفصل,الجنس&#10;لمى العتيبي,الفراشات,أنثى&#10;تركي الحربي,النحل,ذكر"></textarea></div>
     <div id="iprev"></div>
@@ -1415,13 +1466,31 @@ function importSheet(){
   `);
   sheetPanel.querySelector('#ix').onclick = closeSheet;
 
+  let picked = null;                       // rows parsed straight from a workbook
   sheetPanel.querySelector('#if').onchange = async (e) => {
     const f = e.target.files[0]; if(!f) return;
-    sheetPanel.querySelector('#it').value = await f.text();
+    const msg = sheetPanel.querySelector('#imsg');
+    picked = null;
+    if(/\.(xlsx|xls)$/i.test(f.name)){
+      msg.innerHTML = '<p class="help">جارٍ قراءة الملف…</p>';
+      try{
+        picked = await rowsFromWorkbook(f);
+        msg.innerHTML = picked.length
+          ? '<div class="ok">قُرئ ' + picked.length + ' صفًا من الملف.</div>'
+          : '<div class="err">لم يُقرأ أي صف — تأكد أن العمود الأول فيه أسماء الأطفال.</div>';
+      }catch(err){
+        msg.innerHTML = '<div class="err">تعذّرت قراءة ملف Excel. احفظه بصيغة CSV وأعد المحاولة.</div>';
+      }
+      sheetPanel.querySelector('#it').value = '';
+    } else {
+      sheetPanel.querySelector('#it').value = await f.text();
+      msg.innerHTML = '';
+    }
   };
 
   sheetPanel.querySelector('#igo').onclick = async (e) => {
-    const rows = parseRows(sheetPanel.querySelector('#it').value);
+    const typed = sheetPanel.querySelector('#it').value.trim();
+    const rows = typed ? parseRows(typed) : (picked || []);
     const prev = sheetPanel.querySelector('#iprev');
     const msg = sheetPanel.querySelector('#imsg');
     if(!rows.length){ msg.innerHTML = '<div class="err">لم يُقرأ أي صف.</div>'; return; }
@@ -1432,8 +1501,9 @@ function importSheet(){
       const isNew = classes.filter(c => !known.includes(c));
       prev.innerHTML = `<div class="ok">${rows.length} طفل جاهز للاستيراد.</div>` +
         (isNew.length ? `<p class="help">فصول ستُنشأ: ${esc(isNew.join('، '))}</p>` : '') +
-        `<div class="tblwrap"><table class="tbl"><thead><tr><th>الاسم</th><th>الفصل</th><th>الجنس</th></tr></thead><tbody>` +
-        rows.slice(0,8).map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.class||'—')}</td><td>${r.gender==='m'?'ذكر':'أنثى'}</td></tr>`).join('') +
+        `<p class="help">يركب الحافلة: ${rows.filter(r=>r.bus).length} من ${rows.length}</p>` +
+        `<div class="tblwrap"><table class="tbl"><thead><tr><th>الاسم</th><th>الفصل</th><th>الجنس</th><th>الحافلة</th></tr></thead><tbody>` +
+        rows.slice(0,8).map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.class||'—')}</td><td>${r.gender==='m'?'ذكر':'أنثى'}</td><td>${r.bus?esc(r.route||'نعم'):'—'}</td></tr>`).join('') +
         `</tbody></table></div>` + (rows.length>8 ? `<p class="help">…و${rows.length-8} صفًا آخر.</p>` : '');
       e.target.textContent = 'استيراد ' + rows.length + ' طفل';
       return;
