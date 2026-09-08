@@ -229,8 +229,8 @@ main{flex:1;padding:16px 16px 100px;display:flex;flex-direction:column;gap:16px}
 .row .nm{flex:1;min-width:0}
 .row .nm b{display:block;font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row .nm span{font-size:12px;color:var(--ink-2)}
-.row .tagx{flex:none;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--sunken);color:var(--ink-2)}
-.row .tagx.free{background:var(--green-soft);color:var(--green-ink)}
+.row .tagx,.switchrow .tagx{flex:none;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--sunken);color:var(--ink-2)}
+.row .tagx.free,.switchrow .tagx.free{background:var(--green-soft);color:var(--green-ink)}
 .row .tagx.full{background:var(--blue-soft);color:var(--blue-ink)}
 
 .codebox{display:flex;align-items:center;gap:10px;background:var(--blue-soft);border-radius:var(--r-md);padding:13px 15px}
@@ -338,8 +338,12 @@ const S = {
   pickups:{}, notif:null, consentGiven:false, report:null, hasV2:true,
   brand:null, pending:new Set(), resets:[], isOwner:false, tenants:[],
   busTrip:(Number(new Date().toLocaleString('en-GB',{hour:'2-digit',hour12:false,timeZone:'Asia/Riyadh'})) < 11 ? 'am' : 'pm'),
-  busRoster:[], busRoute:null, myBus:{}, preview:null
+  busRoster:[], busRoute:null, myBus:{}, preview:null,
+  photoConsent:true, noPhoto:new Set()
 };
+
+const POLICY_VERSION = '2026-09-01';
+const POLICY_URL = 'https://answer.sa/rawdati/privacy';
 
 const el = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
 const esc = (s) => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -449,7 +453,10 @@ function renderAuth(mode){
       ${mode==='up' ? `<div class="field"><label for="cd">رمز الانضمام</label><input id="cd" required placeholder="PARENT-0001" style="text-transform:uppercase">
         <p class="help">الرمز تعطيه لك إدارة الروضة.</p></div>
       <label class="consentbox"><input type="checkbox" id="cs" required>
-        <span>أوافق على أن تحتفظ الروضة ببيانات طفلي وصوره داخل التطبيق، وأن تُعرض على أولياء أمر الطفل ومعلماته فقط. يمكنني سحب الموافقة في أي وقت من الإعدادات.</span></label>` : ''}
+        <span><b>أوافق</b> على أن تحفظ الروضة اسم طفلي وفصله وسجلّ حضوره وغيابه ورحلات الحافلة، وأن تُعرض عليّ وعلى معلّماته فقط. هذه الموافقة لازمة لتشغيل الخدمة.
+        <a href="${POLICY_URL}" target="_blank" rel="noopener">سياسة الخصوصية</a></span></label>
+      <label class="consentbox"><input type="checkbox" id="cp" checked>
+        <span><b>أوافق أيضًا</b> على نشر صور طفلي في أخبار الفصل — <b>اختياري</b>، ويمكنك إيقافه في أي وقت من الإعدادات دون أن يتأثر باقي التطبيق.</span></label>` : ''}
       <button class="btn" type="submit">${mode==='up'?'إنشاء الحساب':'دخول'}</button>
     </form>
     ${mode==='in' ? '<button class="linkbtn" id="forgot" style="align-self:center">نسيت كلمة المرور؟</button>' : ''}
@@ -488,7 +495,8 @@ function renderAuth(mode){
           await sb.auth.signOut();
           throw new Error(e2.message.includes('ALREADY_USED') ? 'هذا الرمز مستخدم من قبل.' : 'رمز الانضمام غير صحيح.');
         }
-        await safe(sb.rpc('set_consent'));
+        const photoOk = !!(v.querySelector('#cp') && v.querySelector('#cp').checked);
+        await safe(sb.rpc('set_consent', { p_photo: photoOk, p_version: POLICY_VERSION }));
       } else {
         const { error } = await sb.auth.signInWithPassword({ email, password });
         if(error) throw new Error('رقم الجوال أو كلمة المرور غير صحيحة.');
@@ -554,8 +562,14 @@ async function loadCore(){
   S.hasV2 = !!(prof && prof.notif);
   const ow = await safe(sb.rpc('is_owner'));
   S.isOwner = !!(ow && ow.data === true);
-  const g = await safe(sb.from('guardians').select('consent_at').eq('profile_id', prof.id));
-  S.consentGiven = !!(g && (g.data||[]).some(x => x.consent_at));
+  const g = await safe(sb.rpc('my_consent'));
+  const gr = (g && g.data) || [];
+  S.consentGiven = gr.some(x => x.consent_at);
+  S.photoConsent = gr.length ? gr.every(x => x.photo_consent !== false) : true;
+  if(prof.role === 'admin' || prof.role === 'teacher'){
+    const np = await safe(sb.rpc('no_photo_children'));
+    S.noPhoto = new Set(((np && np.data) || []).map(r => r.child_id));
+  }
   await refresh();
   return true;
 }
@@ -760,7 +774,7 @@ function viewRoster(){
                  + (pk ? label + ' · يستلمه: ' + pk.person_name : label);
     const b = el(`<button class="kid ${st.k==='out' ? (ab?'absent':'') : st.k}">
       <span class="face">${esc(initial(k.full_name))}</span>
-      <span class="nm"><b>${esc(k.full_name)}${S.linked.has(k.id)?' <span class="bell" title="ولي الأمر مشترك في الإشعارات">🔔</span>':''}</b><span>${label2}</span></span>
+      <span class="nm"><b>${esc(k.full_name)}${S.linked.has(k.id)?' <span class="bell" title="ولي الأمر مشترك في الإشعارات">🔔</span>':''}${S.noPhoto.has(k.id)?' <span class="bell" title="ولي الأمر لا يوافق على نشر صور طفله">🚫📷</span>':''}</b><span>${label2}</span></span>
       <span class="check">${ICONS.check}</span>
     </button>`);
     b.onclick = async () => {
@@ -919,7 +933,8 @@ function composer(kind){
         ${S.classes.map(c=>`<option value="${c.id}" ${c.id===S.activeClass?'selected':''}>فصل ${esc(c.name)}</option>`).join('')}
       </select>
     </div>
-    ${isAct?`<div class="field"><label for="ph">الصور (اختياري)</label><input id="ph" type="file" accept="image/*" multiple></div>`:''}
+    ${isAct?`<div class="field"><label for="ph">الصور (اختياري)</label><input id="ph" type="file" accept="image/*" multiple>
+      ${S.noPhoto.size ? `<p class="help" style="color:var(--pink-ink)">تنبيه: ${S.noPhoto.size} من الأطفال لا يوافق أولياء أمورهم على نشر صورهم. تأكّد ألّا يظهروا في الصور.</p>` : ''}</div>`:''}
     <div id="cmsg"></div>
     <button class="btn" id="send">نشر</button>
     <button class="btn soft sm" id="cancel">إلغاء</button>
@@ -2363,21 +2378,48 @@ function viewSettings(){
 
   // --- privacy (parents) ---
   if(parent){
-    const pv = el(`<div class="card"><h3>الخصوصية</h3>
-      <p class="help">${S.consentGiven ? 'وافقتَ على حفظ بيانات طفلك وصوره داخل التطبيق.' : 'لم تُسجَّل موافقتك بعد.'}</p></div>`);
+    const pv = el(`<div class="card"><h3>الخصوصية والموافقة</h3></div>`);
+
     if(!S.consentGiven){
+      pv.appendChild(el(`<p class="help">لم تُسجَّل موافقتك بعد. الموافقة الأساسية لازمة لعرض بيانات طفلك.</p>`));
       const cb = el('<button class="btn sm">تسجيل الموافقة</button>');
       cb.onclick = async () => {
-        const r = await safe(sb.rpc('set_consent'));
+        const r = await safe(sb.rpc('set_consent', { p_photo: true, p_version: POLICY_VERSION }));
         if(!r){ toast('تعذّر الحفظ'); return; }
-        S.consentGiven = true; toast('تم تسجيل الموافقة'); render();
+        S.consentGiven = true; S.photoConsent = true; toast('تم تسجيل الموافقة'); render();
       };
       pv.appendChild(cb);
     } else {
-      const wd = el('<button class="btn soft sm">سحب الموافقة</button>');
-      wd.onclick = () => toast('راجع إدارة الروضة لسحب الموافقة وحذف الصور.');
+      pv.appendChild(el(`<div class="switchrow"><div class="t"><b>البيانات الأساسية</b>
+        <span>الاسم، الفصل، الحضور والغياب، رحلات الحافلة. لازمة لتشغيل الخدمة.</span></div>
+        <span class="tagx free">مُفعّلة</span></div>`));
+
+      const ph = el(`<div class="switchrow"><div class="t"><b>نشر صور طفلي</b>
+        <span>اختياري. إيقافه لا يُخرجك من التطبيق — يستمر كل شيء عدا الصور.</span></div>
+        <button class="sw" role="switch" aria-checked="${!!S.photoConsent}"></button></div>`);
+      ph.querySelector('.sw').onclick = async (e) => {
+        const want = !S.photoConsent;
+        const r = await safe(sb.rpc('set_photo_consent', { p_ok: want }));
+        if(!r){ toast('تعذّر الحفظ'); return; }
+        S.photoConsent = want;
+        e.target.setAttribute('aria-checked', String(want));
+        toast(want ? 'تم السماح بنشر الصور' : 'تم إيقاف نشر الصور. أبلغ الروضة لحذف الصور المنشورة سابقًا.');
+      };
+      pv.appendChild(ph);
+
+      const wd = el('<button class="btn soft sm">سحب الموافقة الأساسية وإغلاق الحساب</button>');
+      wd.onclick = () => openSheet(`
+        <h3>سحب الموافقة الأساسية</h3>
+        <p class="help">الموافقة الأساسية هي أساس عرض بيانات طفلك في التطبيق، لذلك سحبها يعني إغلاق حسابك وتوقّف الإشعارات.
+        بيانات الحضور التي تحتفظ بها الروضة كسجلّ رسمي تبقى لديها.</p>
+        <p class="help">إن كان ما يزعجك هو الصور فقط، أوقف «نشر صور طفلي» بالأعلى — الخدمة تستمر كما هي.</p>
+        <p class="help">لإغلاق الحساب تواصل مع إدارة الروضة، أو راسلنا على <b>support@answer.sa</b>.</p>
+        <button class="btn soft sm" id="cw">إغلاق</button>`) || (sheetPanel.querySelector('#cw').onclick = closeSheet);
       pv.appendChild(wd);
     }
+
+    pv.appendChild(el(`<p class="help" style="margin-top:4px">
+      <a href="${POLICY_URL}" target="_blank" rel="noopener">اقرأ سياسة الخصوصية كاملة</a></p>`));
     wrap.appendChild(pv);
   }
 
