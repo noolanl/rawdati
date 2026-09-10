@@ -1,0 +1,2769 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="المبدعون الصغار">
+<title>المبدعون الصغار</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
+<style>
+/* ===== brand tokens — taken from the kindergarten logo ===== */
+:root{
+  --ground:#F2F8FC;
+  --surface:#FFFFFF;
+  --sunken:#EDF3F8;
+  --ink:#22374A;
+  --ink-2:#7791A6;
+  --line:#E4EEF6;
+
+  --pink:#E0206E;      --pink-soft:#FDE7F0;   --pink-ink:#A5124F;
+  --blue:#24A7E1;      --blue-soft:#E3F5FD;   --blue-ink:#0E6E99;
+  --green:#7FB227;     --green-soft:#EEF7DF;  --green-ink:#4F7212;
+  --yellow:#EFB513;    --yellow-soft:#FEF4D9; --yellow-ink:#9A6E00;
+
+  --shadow-sm:0 2px 8px rgba(34,55,74,.06);
+  --shadow:0 10px 28px -14px rgba(34,55,74,.30);
+  --r-lg:24px; --r-md:18px; --r-sm:14px;
+  color-scheme:light;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font-family:"IBM Plex Sans Arabic","Segoe UI",system-ui,sans-serif;
+  font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,.display{font-family:"Baloo Bhaijaan 2","IBM Plex Sans Arabic",system-ui,sans-serif;font-weight:700;margin:0;text-wrap:balance;line-height:1.35}
+.num{font-variant-numeric:tabular-nums}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+:focus-visible{outline:2.5px solid var(--blue);outline-offset:2px}
+img{max-width:100%}
+
+/* ===== shell ===== */
+#app{max-width:560px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;background:var(--ground)}
+.topbar{
+  position:sticky;top:0;z-index:30;background:var(--surface);
+  padding:12px 16px;display:flex;align-items:center;gap:12px;
+  border-bottom:1px solid var(--line);
+}
+.logo{width:42px;height:42px;flex:none;border-radius:13px;background:#fff;object-fit:contain;padding:1px}
+.topbar .who{flex:1;min-width:0}
+.topbar .who b{display:block;font-family:"Baloo Bhaijaan 2",sans-serif;font-size:17px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topbar .who span{font-size:12px;color:var(--ink-2)}
+.iconbtn{
+  background:var(--sunken);border:none;border-radius:12px;width:38px;height:38px;flex:none;
+  display:grid;place-items:center;cursor:pointer;color:var(--ink-2);
+}
+.iconbtn svg{width:17px;height:17px}
+main{flex:1;padding:16px 16px 100px;display:flex;flex-direction:column;gap:16px}
+
+/* ===== auth ===== */
+.auth{max-width:410px;margin:0 auto;padding:34px 22px 48px;display:flex;flex-direction:column;gap:18px;min-height:100%;justify-content:center}
+.auth-logo{display:block;width:104px;margin:0 auto 2px;padding:14px;background:#fff;border-radius:28px;box-shadow:var(--shadow-sm)}
+.auth h1{font-size:27px;text-align:center}
+.auth .sub{margin:0;text-align:center;font-size:13.5px;color:var(--ink-2)}
+.segmented{display:flex;background:var(--sunken);border-radius:999px;padding:5px;gap:5px}
+.segmented button{
+  flex:1;border:none;background:transparent;border-radius:999px;padding:10px;cursor:pointer;
+  font-weight:600;color:var(--ink-2);font-size:14px;transition:.2s;
+}
+.segmented button[aria-selected="true"]{background:var(--surface);color:var(--pink);box-shadow:var(--shadow-sm)}
+
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12.5px;color:var(--ink-2);font-weight:600}
+.field input,.field textarea,.field select{
+  background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r-sm);
+  padding:13px 15px;width:100%;transition:border-color .18s;
+}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--blue);outline:none}
+.field input::placeholder,.field textarea::placeholder{color:var(--ink-2);opacity:.65}
+.help{font-size:12px;color:var(--ink-2);margin:0}
+.err{background:var(--pink-soft);color:var(--pink-ink);border-radius:var(--r-sm);padding:11px 14px;font-size:13.5px}
+.ok{background:var(--green-soft);color:var(--green-ink);border-radius:var(--r-sm);padding:11px 14px;font-size:13.5px}
+
+/* ===== buttons ===== */
+.btn{
+  border:none;border-radius:999px;padding:14px 20px;cursor:pointer;width:100%;
+  font-family:"Baloo Bhaijaan 2",sans-serif;font-size:16px;font-weight:600;
+  background:var(--pink);color:#fff;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 6px 16px -8px rgba(224,32,110,.7);transition:transform .12s;
+}
+.btn:active{transform:scale(.985)}
+.btn[disabled]{opacity:.55;cursor:progress;box-shadow:none}
+.btn.blue{background:var(--blue);box-shadow:0 6px 16px -8px rgba(36,167,225,.7)}
+.btn.green{background:var(--green);box-shadow:0 6px 16px -8px rgba(127,178,39,.7)}
+.btn.soft{background:var(--sunken);color:var(--ink);box-shadow:none}
+.btn.sm{padding:11px 16px;font-size:14.5px}
+.btn svg{width:17px;height:17px}
+.linkbtn{background:none;border:none;color:var(--blue);cursor:pointer;font-weight:600;font-size:13.5px;padding:0}
+
+/* ===== pieces ===== */
+.card{background:var(--surface);border-radius:var(--r-lg);padding:17px;display:flex;flex-direction:column;gap:11px;box-shadow:var(--shadow-sm)}
+.card h3{font-size:16.5px}
+
+.chips{display:flex;gap:6px;overflow-x:auto;background:var(--sunken);border-radius:999px;padding:5px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{
+  border:none;background:transparent;border-radius:999px;padding:9px 16px;white-space:nowrap;
+  cursor:pointer;font-weight:600;font-size:13.5px;color:var(--ink-2);transition:.2s;
+}
+.chip[aria-pressed="true"]{background:var(--surface);color:var(--blue);box-shadow:var(--shadow-sm)}
+
+.counter{display:flex;gap:9px}
+.pill{flex:1;border-radius:var(--r-md);padding:12px 13px;display:flex;flex-direction:column;background:var(--surface);box-shadow:var(--shadow-sm)}
+.pill b{font-family:"Baloo Bhaijaan 2",sans-serif;font-size:24px;line-height:1.1}
+.pill span{font-size:11.5px;color:var(--ink-2)}
+.pill.ok{background:var(--green-soft);box-shadow:none} .pill.ok b{color:var(--green-ink)}
+.pill.left{background:var(--yellow-soft);box-shadow:none} .pill.left b{color:var(--yellow-ink)}
+.pill.no{background:var(--pink-soft);box-shadow:none} .pill.no b{color:var(--pink-ink)}
+.pill.blue{background:var(--blue-soft);box-shadow:none} .pill.blue b{color:var(--blue-ink)}
+
+/* ===== roster ===== */
+.roster{display:flex;flex-direction:column;gap:8px}
+.kid{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:right;
+  background:var(--surface);border:none;border-radius:var(--r-md);padding:11px 13px;cursor:pointer;
+  box-shadow:var(--shadow-sm);transition:background .18s;
+}
+.kid:active{transform:scale(.995)}
+.kid.present{background:var(--green-soft);box-shadow:none}
+.kid.left{background:var(--yellow-soft);box-shadow:none}
+.face{
+  width:36px;height:36px;border-radius:12px;flex:none;display:grid;place-items:center;
+  font-weight:700;font-size:14px;background:var(--blue-soft);color:var(--blue-ink);
+}
+.kid.present .face{background:#fff;color:var(--green-ink)}
+.kid.left .face{background:#fff;color:var(--yellow-ink)}
+.kid .nm{flex:1;min-width:0}
+.kid .nm b{display:block;font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kid .nm span{font-size:12px;color:var(--ink-2)}
+.check{width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;border:2px solid var(--line);color:transparent;background:#fff}
+.kid.present .check{background:var(--green);border-color:var(--green);color:#fff}
+.kid.left .check{background:var(--yellow);border-color:var(--yellow);color:#fff}
+.check svg{width:14px;height:14px}
+.kid.busy{opacity:.5;pointer-events:none}
+.kid.riding{background:var(--blue-soft);box-shadow:none}
+.kid.riding .face{background:#fff;color:var(--blue-ink)}
+.kid.riding .check{background:var(--blue);border-color:var(--blue);color:#fff}
+.bell{font-size:11px;vertical-align:middle;opacity:.85}
+
+/* ===== parent hero ===== */
+.hero{border-radius:var(--r-lg);padding:20px;display:flex;flex-direction:column;gap:6px;background:var(--green-soft)}
+.hero.out{background:var(--surface);box-shadow:var(--shadow-sm)}
+.hero.left{background:var(--yellow-soft)}
+.hero .st{display:flex;align-items:center;gap:10px;font-family:"Baloo Bhaijaan 2",sans-serif;font-size:20px;color:var(--green-ink)}
+.hero.out .st{color:var(--ink-2)} .hero.left .st{color:var(--yellow-ink)}
+.dot{width:10px;height:10px;border-radius:50%;background:currentColor;flex:none}
+.hero small{color:var(--ink-2);font-size:13px}
+.hero .who-kid{font-size:12px;color:var(--ink-2);font-weight:600}
+
+/* ===== feed ===== */
+.feed{display:flex;flex-direction:column;gap:12px}
+.post{background:var(--surface);border-radius:var(--r-lg);padding:14px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow-sm)}
+.post.tint-green{background:var(--green-soft);box-shadow:none}
+.post.tint-yellow{background:var(--yellow-soft);box-shadow:none}
+.post.tint-blue{background:var(--blue-soft);box-shadow:none}
+.post-head{display:flex;align-items:center;gap:11px}
+.ic{width:36px;height:36px;border-radius:12px;flex:none;display:grid;place-items:center;background:#fff}
+.ic svg{width:17px;height:17px}
+.ic.green{color:var(--green-ink)} .ic.yellow{color:var(--yellow-ink)}
+.ic.blue{color:var(--blue-ink)} .ic.pink{color:var(--pink-ink)}
+.post-head .t{flex:1;min-width:0}
+.post-head .t b{display:block;font-size:14.5px;font-weight:600}
+.post-head .t span{font-size:12px;color:var(--ink-2)}
+.postdel{flex:none;width:32px;height:32px;border:none;border-radius:10px;background:transparent;color:var(--ink-2);display:grid;place-items:center;cursor:pointer;transition:.15s}
+.postdel svg{width:17px;height:17px}
+.postdel:hover{background:var(--pink-soft);color:var(--pink-ink)}
+.danger{border:1px solid var(--pink-soft);background:var(--surface)}
+.danger h3{color:var(--pink-ink)}
+.danger .confirmbox{width:100%;text-align:center;letter-spacing:.16em;font-weight:700;text-transform:uppercase}
+.post p{margin:0;font-size:14.5px;line-height:1.6}
+
+.shots{display:grid;gap:6px}
+.shots.n1{grid-template-columns:1fr}
+.shots.n2{grid-template-columns:1fr 1fr}
+.shots.n3{grid-template-columns:repeat(3,1fr)}
+.shots button{border:none;padding:0;background:var(--sunken);border-radius:var(--r-sm);overflow:hidden;cursor:pointer;display:block}
+.shots.n1 button{aspect-ratio:4/3}
+.shots.n2 button,.shots.n3 button{aspect-ratio:1}
+.shots img{width:100%;height:100%;object-fit:cover;display:block}
+.shots .more{position:relative}
+.shots .more::after{
+  content:attr(data-more);position:absolute;inset:0;display:grid;place-items:center;
+  background:rgba(34,55,74,.55);color:#fff;font-family:"Baloo Bhaijaan 2",sans-serif;font-size:20px;
+}
+
+/* ===== lightbox ===== */
+.lightbox{position:fixed;inset:0;z-index:90;background:rgba(20,32,44,.94);display:none;align-items:center;justify-content:center;padding:16px}
+.lightbox.open{display:flex}
+.lightbox img{max-width:100%;max-height:86vh;border-radius:var(--r-md);object-fit:contain}
+.lightbox .x{position:absolute;top:calc(14px + env(safe-area-inset-top));left:14px;width:42px;height:42px;border-radius:50%;border:none;background:rgba(255,255,255,.16);color:#fff;font-size:22px;cursor:pointer;display:grid;place-items:center}
+
+/* ===== dashboard ===== */
+.bars{display:flex;flex-direction:column;gap:13px}
+.bar{display:grid;grid-template-columns:1fr 60px;gap:10px;align-items:center;font-size:13.5px}
+.bar .lbl{display:flex;flex-direction:column;gap:6px}
+.track{height:9px;border-radius:99px;background:var(--sunken);overflow:hidden}
+.fill{height:100%;background:var(--green);border-radius:99px;transition:width .5s}
+.bar .val{text-align:left;color:var(--ink-2)}
+
+.codes{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto}
+.code{display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--sunken);border-radius:var(--r-sm);padding:9px 13px;font-size:13px}
+.code b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600;color:var(--blue-ink)}
+.code .used{color:var(--ink-2);font-size:11.5px}
+
+/* ===== admin sub-nav, lists, absence ===== */
+.subnav{display:flex;gap:6px;overflow-x:auto;background:var(--sunken);border-radius:999px;padding:5px;scrollbar-width:none}
+.subnav::-webkit-scrollbar{display:none}
+.subnav button{border:none;background:transparent;border-radius:999px;padding:9px 15px;white-space:nowrap;cursor:pointer;font-weight:600;font-size:13.5px;color:var(--ink-2)}
+.subnav button[aria-pressed="true"]{background:var(--surface);color:var(--pink);box-shadow:var(--shadow-sm)}
+
+.rowlist{display:flex;flex-direction:column;gap:8px}
+.row{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:right;cursor:pointer;
+  background:var(--surface);border:none;border-radius:var(--r-md);padding:11px 13px;box-shadow:var(--shadow-sm);
+}
+.row .nm{flex:1;min-width:0}
+.row .nm b{display:block;font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .nm span{font-size:12px;color:var(--ink-2)}
+.row .tagx,.switchrow .tagx{flex:none;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--sunken);color:var(--ink-2)}
+.row .tagx.free,.switchrow .tagx.free{background:var(--green-soft);color:var(--green-ink)}
+.row .tagx.full{background:var(--blue-soft);color:var(--blue-ink)}
+
+.codebox{display:flex;align-items:center;gap:10px;background:var(--blue-soft);border-radius:var(--r-md);padding:13px 15px}
+.codebox b{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:17px;color:var(--blue-ink);letter-spacing:.04em}
+.codebox button{border:none;background:var(--blue);color:#fff;border-radius:999px;padding:8px 15px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}
+
+.kid.absent{background:var(--pink-soft);box-shadow:none}
+.kid.absent .face{background:#fff;color:var(--pink-ink)}
+.absent-note{display:flex;align-items:center;gap:10px;background:var(--pink-soft);border-radius:var(--r-md);padding:12px 15px;font-size:13.5px;color:var(--pink-ink)}
+.absent-note .t{flex:1}
+.absent-note button{border:none;background:transparent;color:var(--pink-ink);font-weight:700;cursor:pointer;font-size:13px;text-decoration:underline;font-family:inherit}
+.actions2{display:flex;gap:9px}
+.actions2 .btn{flex:1}
+
+.switchrow{display:flex;align-items:center;gap:12px;padding:11px 0}
+.switchrow .t{flex:1;min-width:0}
+.switchrow .t b{display:block;font-size:14.5px;font-weight:600}
+.switchrow .t span{font-size:12.5px;color:var(--ink-2)}
+.sw{width:48px;height:28px;border-radius:999px;background:var(--line);border:none;flex:none;position:relative;cursor:pointer;transition:background .2s}
+.sw::after{content:"";position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.sw[aria-checked="true"]{background:var(--green)}
+.sw[aria-checked="true"]::after{transform:translateX(-20px)}
+.divider{height:1px;background:var(--line);margin:2px 0}
+
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th,.tbl td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl th{color:var(--ink-2);font-weight:600;font-size:11.5px}
+.tbl td.num{font-variant-numeric:tabular-nums}
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+.consentbox{display:flex;gap:11px;align-items:flex-start;background:var(--sunken);border-radius:var(--r-md);padding:13px 15px;font-size:13.5px;line-height:1.6}
+.consentbox input{width:20px;height:20px;flex:none;margin-top:2px;accent-color:var(--green)}
+.pickup-note{display:flex;align-items:center;gap:10px;background:var(--blue-soft);border-radius:var(--r-md);padding:12px 15px;font-size:13.5px;color:var(--blue-ink)}
+.pickup-note .t{flex:1}
+.pickup-note button{border:none;background:transparent;color:var(--blue-ink);font-weight:700;cursor:pointer;font-size:13px;text-decoration:underline;font-family:inherit}
+
+/* ===== notification banner ===== */
+.notif{display:flex;align-items:center;gap:12px;background:var(--yellow-soft);border-radius:var(--r-md);padding:13px 15px}
+.notif .t{flex:1;min-width:0}
+.notif .t b{display:block;font-size:14px}
+.notif .t span{font-size:12.5px;color:var(--ink-2)}
+.notif button{
+  border:none;border-radius:999px;padding:10px 18px;cursor:pointer;flex:none;
+  background:var(--yellow);color:#fff;font-weight:700;font-size:13.5px;font-family:"Baloo Bhaijaan 2",sans-serif;
+}
+.notif.info{background:var(--blue-soft)}
+
+/* ===== bottom nav ===== */
+nav.tabs{
+  position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--surface);
+  border-top:1px solid var(--line);display:flex;padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+  max-width:560px;margin:0 auto;
+}
+nav.tabs button{
+  flex:1;background:none;border:none;cursor:pointer;border-radius:14px;padding:7px 4px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--ink-2);font-weight:600;
+}
+nav.tabs button[aria-current="page"]{color:var(--pink)}
+nav.tabs svg{width:21px;height:21px}
+
+/* ===== sheet + toast ===== */
+.sheet{position:fixed;inset:0;z-index:60;display:none;align-items:flex-end;justify-content:center;background:rgba(20,32,44,.45)}
+.sheet.open{display:flex}
+.sheet .panel{background:var(--surface);width:100%;max-width:560px;border-radius:26px 26px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:13px;max-height:88vh;overflow:auto}
+.sheet h3{font-size:19px}
+.toast{
+  position:fixed;top:calc(12px + env(safe-area-inset-top));left:12px;right:12px;z-index:80;max-width:536px;margin:0 auto;
+  background:var(--ink);color:#fff;border-radius:var(--r-md);padding:13px 16px;
+  box-shadow:0 14px 30px -14px rgba(0,0,0,.5);
+  opacity:0;transform:translateY(-16px);transition:.28s;pointer-events:none;font-size:14px;
+}
+.toast.show{opacity:1;transform:none}
+.empty{text-align:center;color:var(--ink-2);font-size:14px;padding:28px 10px}
+.spin{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--pink);border-radius:50%;animation:sp .7s linear infinite;margin:40px auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2.4s}.btn:active{transform:none}}
+</style>
+</head>
+<body>
+<div id="app"><div class="spin"></div></div>
+<div class="toast" id="toast"></div>
+<div class="sheet" id="sheet"><div class="panel" id="sheetPanel"></div></div>
+<div class="lightbox" id="lightbox"><button class="x" id="lbClose" aria-label="إغلاق">✕</button><img id="lbImg" alt=""></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+const SUPABASE_URL = 'https://gpfczbyehgsxwsdhnrvz.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_XJaRuA9SMay-IzQGxcJg-Q_ztALOvac';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const app = document.getElementById('app');
+const toastEl = document.getElementById('toast');
+const sheet = document.getElementById('sheet');
+const sheetPanel = document.getElementById('sheetPanel');
+const lightbox = document.getElementById('lightbox');
+const lbImg = document.getElementById('lbImg');
+let toastTimer;
+
+const S = {
+  session:null, profile:null, kg:null,
+  classes:[], children:[], attendance:{}, posts:[],
+  myChildren:[], activeClass:null, tab:null, invites:[], people:{},
+  channel:null, linked:new Set(), pushOn:false,
+  absences:{}, staff:[], adminTab:'overview', childQuery:'', feedScope:'all',
+  pickups:{}, notif:null, consentGiven:false, report:null, hasV2:true,
+  brand:null, pending:new Set(), resets:[], isOwner:false, tenants:[],
+  busTrip:(Number(new Date().toLocaleString('en-GB',{hour:'2-digit',hour12:false,timeZone:'Asia/Riyadh'})) < 11 ? 'am' : 'pm'),
+  busRoster:[], busRoute:null, myBus:{}, preview:null,
+  photoConsent:true, noPhoto:new Set()
+};
+
+const POLICY_VERSION = '2026-09-01';
+const POLICY_URL = 'https://answer.sa/rawdati/privacy';
+
+const el = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
+const esc = (s) => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LOC = 'ar-SA-u-ca-gregory-nu-latn';
+const fmtTime = (d) => new Date(d).toLocaleTimeString(LOC,{hour:'numeric',minute:'2-digit',timeZone:'Asia/Riyadh'});
+const fmtDay  = (d) => new Date(d).toLocaleDateString(LOC,{weekday:'long',day:'numeric',month:'long',timeZone:'Asia/Riyadh'});
+const today   = () => new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});
+const initial = (n) => (n||'؟').trim().charAt(0);
+const first   = (n) => String(n||'').split(' ')[0];
+const dayOffset = (n) => { const d = new Date(); d.setDate(d.getDate()+n); return d.toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'}); };
+const dayLabel = (iso) => iso===today() ? 'اليوم' : iso===dayOffset(1) ? 'غدًا'
+  : new Date(iso+'T12:00:00').toLocaleDateString(LOC,{weekday:'long',day:'numeric',month:'long'});
+const REASONS = { sick:'مرض', travel:'سفر', family:'ظرف عائلي', other:'سبب آخر' };
+const NOTIF_DEFAULT = { attendance:true, activities:'instant', announcements:true, absence:true, quiet:true };
+// new tables/functions may not be migrated yet — never let that break the app
+async function safe(promise){ try { const r = await promise; return r && r.error ? null : r; } catch(_) { return null; } }
+
+// ---- branding: one app, many kindergartens. The subdomain picks the tenant. ----
+const SLUG = (location.hostname.split('.')[0] || 'mubdioon').toLowerCase();
+const BRAND_FALLBACK = { name:'المبدعون الصغار', tagline:'تطبيق التواصل بين الروضة وأولياء الأمور', logo_url:'logo.png', theme:{} };
+function brandLogo(){ return (S.brand && S.brand.logo_url) || 'logo.png'; }
+function kidsWord(n){
+  if(n === 1) return 'طفل واحد';
+  if(n === 2) return 'طفلان';
+  if(n >= 3 && n <= 10) return n + ' أطفال';
+  return n + ' طفلًا';
+}
+function brandName(){ return (S.kg && S.kg.name) || (S.brand && S.brand.name) || BRAND_FALLBACK.name; }
+
+async function loadBrand(){
+  const r = await safe(sb.rpc('tenant_public', { p_slug: SLUG }));
+  const row = r && r.data && r.data[0];
+  S.brand = row || BRAND_FALLBACK;
+  applyBrand();
+}
+function applyBrand(){
+  const t = (S.brand && S.brand.theme) || {};
+  const root = document.documentElement;
+  ['pink','blue','green','yellow'].forEach(k => { if(t[k]) root.style.setProperty('--' + k, t[k]); });
+  if(t.ground) root.style.setProperty('--ground', t.ground);
+  const n = brandName();
+  document.title = n;
+  const m = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if(m) m.setAttribute('content', n);
+  if(S.brand && S.brand.logo_url){
+    document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(l => l.href = S.brand.logo_url);
+  }
+}
+
+// parents sign in with a phone number; it maps to an internal address Supabase understands
+const LOGIN_DOMAIN = 'wali.mubdioon.sa';
+function normalisePhone(v){
+  let d = String(v||'').replace(/[^\d+]/g,'');
+  if(d.startsWith('+')) d = d.slice(1);
+  if(d.startsWith('00')) d = d.slice(2);
+  if(d.startsWith('966')) return d;
+  if(d.startsWith('0')) return '966' + d.slice(1);
+  if(d.startsWith('5') && d.length === 9) return '966' + d;
+  return d;
+}
+function toEmail(id){
+  const t = String(id||'').trim();
+  if(t.includes('@')) return t;
+  return normalisePhone(t) + '@' + LOGIN_DOMAIN;
+}
+function isPhone(id){ return !String(id||'').includes('@'); }
+function copyText(t, btn){
+  navigator.clipboard.writeText(t).then(()=>{ if(btn){ const o=btn.textContent; btn.textContent='تم النسخ'; setTimeout(()=>btn.textContent=o,1600);} }).catch(()=>toast('انسخ الرمز يدويًا: '+t));
+}
+
+function toast(msg){
+  toastEl.textContent = msg; toastEl.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>toastEl.classList.remove('show'), 3200);
+}
+function openSheet(html){ sheetPanel.innerHTML = html; sheet.classList.add('open'); }
+function closeSheet(){ sheet.classList.remove('open'); sheetPanel.innerHTML=''; }
+sheet.addEventListener('click', e => { if(e.target===sheet) closeSheet(); });
+document.getElementById('lbClose').onclick = () => { lightbox.classList.remove('open'); lbImg.src=''; };
+lightbox.addEventListener('click', e => { if(e.target===lightbox){ lightbox.classList.remove('open'); lbImg.src=''; } });
+function openPhoto(url){ lbImg.src = url; lightbox.classList.add('open'); }
+
+const ICONS = {
+  in:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>',
+  out:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>',
+  photo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="9" r="1.7"/><path d="m21 15-4.5-4.5L7 20"/></svg>',
+  megaphone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h3l4-4v10l-4-4H3z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  users:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>',
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  chart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v3M12 9v9M17 5v13"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  car:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14"/><path d="M6 17V9l2-4h8l2 4v8"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>',
+  exit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>'
+};
+
+/* ================= auth ================= */
+function renderAuth(mode){
+  mode = mode || 'in';
+  app.innerHTML = '';
+  const v = el(`<div class="auth">
+    <img class="auth-logo" src="${esc(brandLogo())}" alt="${esc(brandName())}">
+    <h1>${esc(brandName())}</h1>
+    <p class="sub">${esc((S.brand&&S.brand.tagline)||BRAND_FALLBACK.tagline)}</p>
+    <div class="segmented" role="tablist">
+      <button role="tab" aria-selected="${mode==='in'}" data-m="in">تسجيل الدخول</button>
+      <button role="tab" aria-selected="${mode==='up'}" data-m="up">حساب جديد</button>
+    </div>
+    <div id="msg"></div>
+    <form id="f" style="display:flex;flex-direction:column;gap:13px">
+      ${mode==='up' ? `<div class="field"><label for="nm">الاسم</label><input id="nm" required placeholder="مثال: نورة الرشودي"></div>` : ''}
+      <div class="field"><label for="em">رقم الجوال</label><input id="em" required inputmode="tel" autocomplete="username" placeholder="05XXXXXXXX">
+        <p class="help">يمكنك أيضًا استخدام بريدك الإلكتروني إن كان لديك حساب سابق.</p></div>
+      <div class="field"><label for="pw">كلمة المرور</label><input id="pw" type="password" required minlength="6" autocomplete="${mode==='up'?'new-password':'current-password'}" placeholder="٦ أحرف على الأقل"></div>
+      ${mode==='up' ? `<div class="field"><label for="cd">رمز الانضمام</label><input id="cd" required placeholder="PARENT-0001" style="text-transform:uppercase">
+        <p class="help">الرمز تعطيه لك إدارة الروضة.</p></div>
+      <label class="consentbox"><input type="checkbox" id="cs" required>
+        <span><b>أوافق</b> على أن تحفظ الروضة اسم طفلي وفصله وسجلّ حضوره وغيابه ورحلات الحافلة، وأن تُعرض عليّ وعلى معلّماته فقط. هذه الموافقة لازمة لتشغيل الخدمة.
+        <a href="${POLICY_URL}" target="_blank" rel="noopener">سياسة الخصوصية</a></span></label>
+      <label class="consentbox"><input type="checkbox" id="cp" checked>
+        <span><b>أوافق أيضًا</b> على نشر صور طفلي في أخبار الفصل — <b>اختياري</b>، ويمكنك إيقافه في أي وقت من الإعدادات دون أن يتأثر باقي التطبيق.</span></label>` : ''}
+      <button class="btn" type="submit">${mode==='up'?'إنشاء الحساب':'دخول'}</button>
+    </form>
+    ${mode==='in' ? '<button class="linkbtn" id="forgot" style="align-self:center">نسيت كلمة المرور؟</button>' : ''}
+  </div>`);
+  app.appendChild(v);
+
+  v.querySelectorAll('[data-m]').forEach(b => b.onclick = () => renderAuth(b.dataset.m));
+  const forgot = v.querySelector('#forgot');
+  if(forgot) forgot.onclick = () => openSheet(`
+      <h3>نسيت كلمة المرور؟</h3>
+      <p class="help">أدخل رقم جوالك وسنُبلّغ إدارة الروضة. ستتواصل معك بكلمة مرور مؤقتة.</p>
+      <div class="field"><label for="fp">رقم الجوال</label><input id="fp" inputmode="tel" placeholder="05XXXXXXXX"></div>
+      <div id="fmsg"></div>
+      <button class="btn" id="fsend">إرسال الطلب</button>
+      <button class="btn soft sm" id="fcancel">إلغاء</button>
+    `) || bindForgot();
+  const msg = v.querySelector('#msg');
+  v.querySelector('#f').onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; msg.innerHTML = '';
+    const raw = v.querySelector('#em').value.trim();
+    const email = toEmail(raw);
+    const phone = isPhone(raw) ? normalisePhone(raw) : null;
+    const password = v.querySelector('#pw').value;
+    try{
+      if(mode==='up'){
+        const full_name = v.querySelector('#nm').value.trim();
+        const code = v.querySelector('#cd').value.trim().toUpperCase();
+        if(phone && phone.length < 12){ throw new Error('رقم الجوال غير صحيح. مثال: 0551234567'); }
+        const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ full_name, phone } } });
+        if(error) throw error;
+        if(!data.session){ msg.innerHTML = '<div class="ok">تم إنشاء الحساب. سجّل الدخول الآن.</div>'; btn.disabled=false; return; }
+        const { error: e2 } = await sb.rpc('redeem_invite', { p_code: code });
+        if(e2){
+          await sb.auth.signOut();
+          throw new Error(e2.message.includes('ALREADY_USED') ? 'هذا الرمز مستخدم من قبل.' : 'رمز الانضمام غير صحيح.');
+        }
+        const photoOk = !!(v.querySelector('#cp') && v.querySelector('#cp').checked);
+        await safe(sb.rpc('set_consent', { p_photo: photoOk, p_version: POLICY_VERSION }));
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if(error) throw new Error('رقم الجوال أو كلمة المرور غير صحيحة.');
+      }
+      await boot();
+    }catch(err){
+      msg.innerHTML = '<div class="err">'+esc(err.message||'حدث خطأ')+'</div>';
+      btn.disabled = false;
+    }
+  };
+}
+
+function bindForgot(){
+  const cancel = sheetPanel.querySelector('#fcancel');
+  if(cancel) cancel.onclick = closeSheet;
+  const send = sheetPanel.querySelector('#fsend');
+  if(!send) return;
+  send.onclick = async () => {
+    const raw = sheetPanel.querySelector('#fp').value.trim();
+    if(!raw){ sheetPanel.querySelector('#fmsg').innerHTML = '<div class="err">أدخل رقم الجوال.</div>'; return; }
+    send.disabled = true; send.textContent = 'جارٍ الإرسال…';
+    await safe(sb.rpc('request_reset', { p_phone: normalisePhone(raw) }));
+    sheetPanel.querySelector('#fmsg').innerHTML = '<div class="ok">تم إرسال الطلب. ستتواصل معك الروضة قريبًا.</div>';
+    send.disabled = false; send.textContent = 'إرسال الطلب';
+  };
+}
+
+function renderNeedsCode(){
+  app.innerHTML='';
+  const v = el(`<div class="auth">
+    <img class="auth-logo" src="${esc(brandLogo())}" alt="">
+    <h1>خطوة أخيرة</h1>
+    <p class="sub">أدخل رمز الانضمام الذي أعطتك إياه الروضة</p>
+    <div id="msg"></div>
+    <form id="f" style="display:flex;flex-direction:column;gap:13px">
+      <div class="field"><label for="cd">رمز الانضمام</label><input id="cd" required placeholder="PARENT-0001" style="text-transform:uppercase"></div>
+      <button class="btn" type="submit">متابعة</button>
+    </form>
+    <button class="linkbtn" id="out">تسجيل الخروج</button>
+  </div>`);
+  app.appendChild(v);
+  v.querySelector('#out').onclick = async()=>{ await sb.auth.signOut(); boot(); };
+  v.querySelector('#f').onsubmit = async (e)=>{
+    e.preventDefault();
+    const btn=e.target.querySelector('button'); btn.disabled=true;
+    const { error } = await sb.rpc('redeem_invite',{ p_code: v.querySelector('#cd').value.trim().toUpperCase() });
+    if(error){ v.querySelector('#msg').innerHTML='<div class="err">رمز غير صحيح أو مستخدم.</div>'; btn.disabled=false; return; }
+    boot();
+  };
+}
+
+/* ================= data ================= */
+async function loadCore(){
+  const { data: prof } = await sb.from('profiles').select('*').eq('id', S.session.user.id).single();
+  S.profile = prof;
+  if(!prof || !prof.kindergarten_id) return false;
+  const [kg, classes] = await Promise.all([
+    sb.from('kindergartens').select('*').eq('id', prof.kindergarten_id).single(),
+    sb.from('classes').select('*').eq('kindergarten_id', prof.kindergarten_id).order('name')
+  ]);
+  S.kg = kg.data; S.classes = classes.data || [];
+  S.notif = (prof && prof.notif) ? Object.assign({}, NOTIF_DEFAULT, prof.notif) : Object.assign({}, NOTIF_DEFAULT);
+  S.hasV2 = !!(prof && prof.notif);
+  const ow = await safe(sb.rpc('is_owner'));
+  S.isOwner = !!(ow && ow.data === true);
+  const g = await safe(sb.rpc('my_consent'));
+  const gr = (g && g.data) || [];
+  S.consentGiven = gr.some(x => x.consent_at);
+  S.photoConsent = gr.length ? gr.every(x => x.photo_consent !== false) : true;
+  if(prof.role === 'admin' || prof.role === 'teacher'){
+    const np = await safe(sb.rpc('no_photo_children'));
+    S.noPhoto = new Set(((np && np.data) || []).map(r => r.child_id));
+  }
+  await refresh();
+  return true;
+}
+
+async function refresh(){
+  if(S.profile && S.profile.role === 'bus'){
+    await loadBusRoster();
+    S.children = []; S.attendance = {}; S.posts = []; S.absences = {}; S.pickups = {};
+    S.linked = new Set();
+    return;
+  }
+  const [ch, at, po, ab] = await Promise.all([
+    sb.from('children').select('id,full_name,gender,class_id,active,rides_bus,bus_route').eq('active', true).order('full_name'),
+    sb.from('attendance').select('*').eq('day', today()),
+    sb.from('posts').select('*').order('created_at',{ascending:false}).limit(30),
+    sb.from('absences').select('*').gte('day', today()).lte('day', dayOffset(7))
+  ]);
+  S.children = ch.data || [];
+  S.attendance = {};
+  (at.data||[]).forEach(r => S.attendance[r.child_id] = r);
+  S.posts = po.data || [];
+  S.absences = {};
+  (ab.data||[]).forEach(r => S.absences[r.child_id + '|' + r.day] = r);
+  const pk = await safe(sb.from('pickups').select('*').gte('day', today()).lte('day', dayOffset(7)));
+  S.pickups = {};
+  if(pk) (pk.data||[]).forEach(r => S.pickups[r.child_id + '|' + r.day] = r);
+  if(S.profile.role === 'parent'){
+    S.myChildren = S.children;
+    const mb = await safe(sb.rpc('my_bus_today'));
+    S.myBus = {};
+    if(mb) (mb.data||[]).forEach(r => S.myBus[r.child_id + '|' + r.trip] = r);
+  }
+  // previewing another role: borrow the data that role would see
+  if(S.preview === 'parent'){
+    S.myChildren = S.children.slice(0, 1);
+    S.myBus = {};
+    const ids = S.myChildren.map(c => c.id);
+    if(ids.length){
+      const bl = await safe(sb.from('bus_logs').select('*').eq('day', today()).in('child_id', ids));
+      if(bl) (bl.data||[]).forEach(r => S.myBus[r.child_id + '|' + r.trip] = r);
+    }
+  }
+  if(S.preview === 'bus') await loadBusRoster();
+  if(S.profile.role !== 'parent'){
+    const { data: lk } = await sb.rpc('children_with_push');
+    S.linked = new Set((lk || []).map(r => (typeof r === 'string' ? r : r.children_with_push)));
+  }
+  if(!S.activeClass && S.classes.length) S.activeClass = S.classes[0].id;
+}
+
+function subscribe(){
+  if(S.channel) sb.removeChannel(S.channel);
+  S.channel = sb.channel('live')
+    .on('postgres_changes',{event:'*',schema:'public',table:'attendance'}, p => {
+      const r = p.new && p.new.id ? p.new : null;
+      if(r && r.day === today()){ S.attendance[r.child_id] = r; render(); }
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'posts'}, p => {
+      if(!S.posts.find(x=>x.id===p.new.id)){ S.posts.unshift(p.new); render(); }
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'absences'}, async () => {
+      await refresh(); render();
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'bus_logs'}, async () => {
+      if(S.profile.role === 'bus') { await loadBusRoster(); render(); }
+      else if(S.profile.role === 'parent'){ await refresh(); render(); }
+    })
+    .subscribe();
+}
+
+// ---- offline queue: a tap at the door must never be lost to bad wifi ----
+const QKEY = 'pendingTaps_v1';
+function queueGet(){ try { return JSON.parse(localStorage.getItem(QKEY) || '[]'); } catch(_){ return []; } }
+function queueSet(v){ try { localStorage.setItem(QKEY, JSON.stringify(v)); } catch(_){} }
+function stateOfRow(r){
+  if(!r || !r.check_in_at) return 'out';
+  return r.check_out_at ? 'left' : 'in';
+}
+function nextState(cur){ return cur === 'out' ? 'in' : cur === 'in' ? 'left' : 'out'; }
+
+function queueTap(childId, want){
+  const q = queueGet().filter(x => x.child_id !== childId);
+  q.push({ child_id: childId, want, ts: Date.now() });
+  queueSet(q);
+  S.pending.add(childId);
+}
+
+async function flushQueue(){
+  const q = queueGet();
+  if(!q.length || !navigator.onLine) return;
+  const at = await safe(sb.from('attendance').select('*').eq('day', today()));
+  if(!at) return;                                  // still offline; try again later
+  const cur = {};
+  (at.data || []).forEach(r => cur[r.child_id] = r);
+
+  const rest = [];
+  let done = 0;
+  for(const it of q){
+    // the tap may have reached the server before the connection dropped
+    if(stateOfRow(cur[it.child_id]) === it.want){ done++; continue; }
+    let row = cur[it.child_id], guard = 0, ok = false;
+    while(guard++ < 3){
+      const { data, error } = await sb.rpc('toggle_attendance', { p_child: it.child_id });
+      if(error) break;
+      row = data;
+      if(stateOfRow(row) === it.want){ ok = true; break; }
+    }
+    if(ok){
+      cur[it.child_id] = row; S.attendance[it.child_id] = row; done++;
+      if(it.want !== 'out') notifyServer({ type:'attendance', child_id: it.child_id });
+    } else {
+      rest.push(it);
+    }
+  }
+  queueSet(rest);
+  S.pending = new Set(rest.map(x => x.child_id));
+  if(done){ toast('تم إرسال ' + done + ' تسجيل كان محفوظًا على الجهاز'); await refresh(); render(); }
+}
+window.addEventListener('online', () => flushQueue());
+
+function absenceOf(childId, day){ return S.absences[childId + '|' + (day||today())] || null; }
+function pickupOf(childId, day){ return S.pickups[childId + '|' + (day||today())] || null; }
+
+/* ================= bus ================= */
+const BUS_TRIPS = { am:'رحلة الصباح', pm:'رحلة العودة' };
+const ROLE_AR = { admin:'مديرة', teacher:'معلمة', bus:'مرافقة الحافلة', parent:'ولي أمر' };
+// the platform owner can look at the app through another role's eyes.
+// this only changes what is DRAWN — the database still answers as him.
+function actingRole(){ return S.preview || S.profile.role; }
+// in preview nothing may be written — the owner is not really this person
+function previewBlock(){
+  if(!S.preview) return false;
+  toast('معاينة فقط — لا يمكن التسجيل من هنا');
+  return true;
+}
+async function setPreview(role){
+  S.preview = role;
+  S.tab = null; S.busRoute = null; S.adminTab = 'overview';
+  await refresh();
+  render();
+}
+function busState(r){
+  if(!r || !r.boarded_at) return 'none';
+  return r.arrived_at ? 'arrived' : 'boarded';
+}
+function busLabel(trip, st, t){
+  if(st==='none') return trip==='am' ? 'لم يركب بعد' : 'لم يركب بعد';
+  if(trip==='am') return st==='boarded' ? 'في الحافلة · ' + fmtTime(t) : 'وصل الروضة · ' + fmtTime(t);
+  return st==='boarded' ? 'في الحافلة · ' + fmtTime(t) : 'وصل المنزل · ' + fmtTime(t);
+}
+async function loadBusRoster(){
+  const r = await safe(sb.rpc('bus_roster', { p_trip: S.busTrip }));
+  S.busRoster = (r && r.data) || [];
+  const routes = [...new Set(S.busRoster.map(x=>x.bus_route).filter(Boolean))];
+  if(S.busRoute && !routes.includes(S.busRoute)) S.busRoute = null;
+}
+
+function statusOf(childId){
+  const a = S.attendance[childId];
+  if(!a || !a.check_in_at) return {k:'out', t:null};
+  if(a.check_out_at) return {k:'left', t:a.check_out_at};
+  return {k:'in', t:a.check_in_at};
+}
+
+/* ================= staff: roster ================= */
+function viewRoster(){
+  const kids = S.children.filter(c => c.class_id === S.activeClass);
+  const inN = kids.filter(k => statusOf(k.id).k==='in').length;
+  const leftN = kids.filter(k => statusOf(k.id).k==='left').length;
+  const absN = kids.filter(k => statusOf(k.id).k==='out' && absenceOf(k.id)).length;
+
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+
+  if(S.classes.length > 1){
+    const chips = el('<div class="chips"></div>');
+    S.classes.forEach(c => {
+      const b = el(`<button class="chip" aria-pressed="${c.id===S.activeClass}">${esc(c.name)}</button>`);
+      b.onclick = () => { S.activeClass = c.id; render(); };
+      chips.appendChild(b);
+    });
+    wrap.appendChild(chips);
+  }
+
+  wrap.appendChild(el(`<div class="counter">
+    <div class="pill ok"><b class="num">${inN}</b><span>في الروضة</span></div>
+    <div class="pill left"><b class="num">${leftN}</b><span>غادر</span></div>
+    <div class="pill no"><b class="num">${kids.length-inN-leftN-absN}</b><span>لم يصل</span></div>
+    <div class="pill blue"><b class="num">${absN}</b><span>غياب مُبلّغ</span></div>
+  </div>`));
+
+  const roster = el('<div class="roster"></div>');
+  if(!kids.length) roster.appendChild(el('<div class="empty">لا يوجد أطفال في هذا الفصل.</div>'));
+  kids.forEach(k => {
+    const st = statusOf(k.id);
+    const ab = st.k==='out' ? absenceOf(k.id) : null;
+    const label = st.k==='in' ? 'وصل ' + fmtTime(st.t)
+                : st.k==='left' ? 'غادر ' + fmtTime(st.t)
+                : ab ? 'غياب مُبلّغ · ' + (REASONS[ab.reason] || ab.reason) + (ab.note ? ' · ' + ab.note : '')
+                : 'لم يصل بعد';
+    const pk = pickupOf(k.id);
+    const label2 = (S.pending.has(k.id) ? '⏳ بانتظار الإرسال · ' : '')
+                 + (pk ? label + ' · يستلمه: ' + pk.person_name : label);
+    const b = el(`<button class="kid ${st.k==='out' ? (ab?'absent':'') : st.k}">
+      <span class="face">${esc(initial(k.full_name))}</span>
+      <span class="nm"><b>${esc(k.full_name)}${S.linked.has(k.id)?' <span class="bell" title="ولي الأمر مشترك في الإشعارات">🔔</span>':''}${S.noPhoto.has(k.id)?' <span class="bell" title="ولي الأمر لا يوافق على نشر صور طفله">🚫📷</span>':''}</b><span>${label2}</span></span>
+      <span class="check">${ICONS.check}</span>
+    </button>`);
+    b.onclick = async () => {
+      if(previewBlock()) return;
+      b.classList.add('busy');
+      const want = nextState(statusOf(k.id).k);
+      let failedOffline = false;
+      try{
+        if(!navigator.onLine) throw new Error('offline');
+        const { data, error } = await sb.rpc('toggle_attendance', { p_child: k.id });
+        if(error) throw error;
+        S.attendance[k.id] = data;
+        S.pending.delete(k.id);
+        const q = queueGet().filter(x => x.child_id !== k.id); queueSet(q);
+      }catch(err){
+        const msg = String((err && err.message) || err);
+        if(!navigator.onLine || /offline|fetch|network|Failed to fetch|timeout/i.test(msg)){
+          failedOffline = true;
+          queueTap(k.id, want);
+          // show the teacher what she just did, even with no signal
+          const now = new Date().toISOString();
+          const row = S.attendance[k.id] || { child_id:k.id, day:today(), check_in_at:null, check_out_at:null };
+          if(want === 'in'){ row.check_in_at = now; row.check_out_at = null; }
+          else if(want === 'left'){ row.check_out_at = now; }
+          else { row.check_in_at = null; row.check_out_at = null; }
+          S.attendance[k.id] = row;
+        } else {
+          b.classList.remove('busy');
+          toast('تعذّر التسجيل: ' + msg);
+          return;
+        }
+      }
+      b.classList.remove('busy');
+      const s2 = statusOf(k.id);
+      if(failedOffline){
+        toast('لا يوجد اتصال — حُفظ على الجهاز وسيُرسل تلقائيًا');
+      } else {
+        if(s2.k !== 'out') notifyServer({ type:'attendance', child_id: k.id });
+        const notified = S.linked.has(k.id) ? ' — أُشعر ولي الأمر' : '';
+        toast(s2.k==='in' ? 'تم تسجيل وصول ' + first(k.full_name) + notified
+            : s2.k==='left' ? 'تم تسجيل مغادرة ' + first(k.full_name) + notified
+            : 'تم إلغاء التسجيل');
+      }
+      render();
+    };
+    roster.appendChild(b);
+  });
+  wrap.appendChild(roster);
+
+  const acts = el('<div style="display:flex;flex-direction:column;gap:9px"></div>');
+  const a1 = el(`<button class="btn blue">${ICONS.photo} نشر نشاط وصور</button>`);
+  a1.onclick = () => { if(!previewBlock()) composer('activity'); };
+  const a2 = el(`<button class="btn soft">${ICONS.megaphone} إرسال إعلان</button>`);
+  a2.onclick = () => { if(!previewBlock()) composer('announcement'); };
+  acts.append(a1,a2);
+  wrap.appendChild(acts);
+  return wrap;
+}
+
+
+/* ================= bus escort: the whole app for her ================= */
+function viewBus(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+
+  // which trip
+  const seg = el(`<div class="segmented">
+    <button aria-selected="${S.busTrip==='am'}">رحلة الصباح</button>
+    <button aria-selected="${S.busTrip==='pm'}">رحلة العودة</button>
+  </div>`);
+  seg.children[0].onclick = async ()=>{ if(S.busTrip==='am') return; S.busTrip='am'; await loadBusRoster(); render(); };
+  seg.children[1].onclick = async ()=>{ if(S.busTrip==='pm') return; S.busTrip='pm'; await loadBusRoster(); render(); };
+  wrap.appendChild(seg);
+
+  // which bus, when the kindergarten runs more than one
+  const routes = [...new Set(S.busRoster.map(x=>x.bus_route).filter(Boolean))];
+  if(routes.length > 1){
+    const chips = el('<div class="chips"></div>');
+    const all = el(`<button class="chip" aria-pressed="${!S.busRoute}">الكل</button>`);
+    all.onclick = ()=>{ S.busRoute=null; render(); };
+    chips.appendChild(all);
+    routes.forEach(rt => {
+      const b = el(`<button class="chip" aria-pressed="${rt===S.busRoute}">${esc(rt)}</button>`);
+      b.onclick = ()=>{ S.busRoute=rt; render(); };
+      chips.appendChild(b);
+    });
+    wrap.appendChild(chips);
+  }
+
+  const kids = S.busRoster.filter(k => !S.busRoute || k.bus_route === S.busRoute);
+  const onBus = kids.filter(k => busState(k)==='boarded').length;
+  const done  = kids.filter(k => busState(k)==='arrived').length;
+  const absN  = kids.filter(k => k.absent && busState(k)==='none').length;
+  const waiting = kids.length - onBus - done - absN;
+
+  wrap.appendChild(el(`<div class="counter">
+    <div class="pill blue"><b class="num">${onBus}</b><span>في الحافلة</span></div>
+    <div class="pill ok"><b class="num">${done}</b><span>${S.busTrip==='am'?'وصل الروضة':'وصل المنزل'}</span></div>
+    <div class="pill no"><b class="num">${waiting}</b><span>لم يركب</span></div>
+    <div class="pill left"><b class="num">${absN}</b><span>غياب مُبلّغ</span></div>
+  </div>`));
+
+  // the one thing that matters: nobody left on the bus
+  if(kids.length && onBus === 0 && done > 0 && waiting === 0){
+    wrap.appendChild(el(`<div class="ok">✅ الحافلة فارغة — كل الأطفال ${S.busTrip==='am'?'وصلوا الروضة':'وصلوا منازلهم'}.</div>`));
+  } else if(onBus > 0){
+    wrap.appendChild(el(`<div class="absent-note"><span class="t">لا يزال <b>${onBus}</b> ${onBus===1?'طفل':'أطفال'} في الحافلة.</span></div>`));
+  }
+
+  const roster = el('<div class="roster"></div>');
+  if(!kids.length){
+    roster.appendChild(el('<div class="empty">لا يوجد أطفال مسجّلين في الحافلة. تراجع الإدارة قائمة الأطفال.</div>'));
+  }
+  kids.forEach(k => {
+    const st = busState(k);
+    const t  = st==='arrived' ? k.arrived_at : k.boarded_at;
+    const cls = st==='boarded' ? 'riding' : st==='arrived' ? 'present' : (k.absent ? 'absent' : '');
+    const label = k.absent && st==='none' ? 'غياب مُبلّغ اليوم' : busLabel(S.busTrip, st, t);
+    const b = el(`<button class="kid ${cls}">
+      <span class="face">${esc(initial(k.full_name))}</span>
+      <span class="nm"><b>${esc(k.full_name)}</b><span>${esc(label)}${k.bus_route && routes.length>1 ? ' · '+esc(k.bus_route) : ''}</span></span>
+      <span class="check">${st==='arrived' ? ICONS.check : ICONS.car}</span>
+    </button>`);
+    b.onclick = async () => {
+      if(previewBlock()) return;
+      b.classList.add('busy');
+      const r = await safe(sb.rpc('bus_mark', { p_child: k.child_id, p_trip: S.busTrip }));
+      b.classList.remove('busy');
+      if(!r || !r.data){ toast('تعذّر التسجيل — تأكدي من الاتصال'); return; }
+      const row = r.data;
+      k.boarded_at = row.boarded_at; k.arrived_at = row.arrived_at;
+      const s2 = busState(k);
+      if(s2 !== 'none') notifyServer({ type:'bus', child_id: k.child_id, trip: S.busTrip });
+      toast(s2==='boarded' ? 'ركب ' + first(k.full_name) + ' الحافلة — أُشعر ولي الأمر'
+          : s2==='arrived' ? (S.busTrip==='am' ? 'وصل ' : 'وصل ') + first(k.full_name) + (S.busTrip==='am'?' الروضة':' المنزل') + ' — أُشعر ولي الأمر'
+          : 'تم إلغاء التسجيل');
+      render();
+    };
+    roster.appendChild(b);
+  });
+  wrap.appendChild(roster);
+  return wrap;
+}
+
+function composer(kind){
+  const isAct = kind==='activity';
+  openSheet(`
+    <h3>${isAct?'نشر نشاط':'إرسال إعلان'}</h3>
+    <div class="field">
+      <label for="bd">${isAct?'ماذا فعل الأطفال؟':'نص الإعلان'}</label>
+      <textarea id="bd" rows="3" placeholder="${isAct?'مثال: الرسم بألوان الماء':'مثال: رحلة مزرعة النخيل يوم الأربعاء'}"></textarea>
+    </div>
+    <div class="field">
+      <label for="sc">يظهر لـ</label>
+      <select id="sc">
+        <option value="">كل أولياء الأمور في الروضة</option>
+        ${S.classes.map(c=>`<option value="${c.id}" ${c.id===S.activeClass?'selected':''}>فصل ${esc(c.name)}</option>`).join('')}
+      </select>
+    </div>
+    ${isAct?`<div class="field"><label for="ph">الصور (اختياري)</label><input id="ph" type="file" accept="image/*" multiple>
+      ${S.noPhoto.size ? `<p class="help" style="color:var(--pink-ink)">تنبيه: ${S.noPhoto.size} من الأطفال لا يوافق أولياء أمورهم على نشر صورهم. تأكّد ألّا يظهروا في الصور.</p>` : ''}</div>`:''}
+    <div id="cmsg"></div>
+    <button class="btn" id="send">نشر</button>
+    <button class="btn soft sm" id="cancel">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#cancel').onclick = closeSheet;
+  sheetPanel.querySelector('#send').onclick = async () => {
+    const body = sheetPanel.querySelector('#bd').value.trim();
+    if(!body){ sheetPanel.querySelector('#cmsg').innerHTML='<div class="err">اكتب النص أولًا.</div>'; return; }
+    const btn = sheetPanel.querySelector('#send'); btn.disabled = true; btn.textContent = 'جارٍ النشر…';
+    const class_id = sheetPanel.querySelector('#sc').value || null;
+    const paths = [];
+    try{
+      const files = isAct ? Array.from(sheetPanel.querySelector('#ph').files||[]) : [];
+      for(const f of files.slice(0,9)){
+        const path = `${S.kg.id}/${crypto.randomUUID()}-${f.name.replace(/[^\w.\-]/g,'_')}`;
+        const { error } = await sb.storage.from('photos').upload(path, f, { upsert:false });
+        if(error) throw error;
+        paths.push(path);
+      }
+      const { data, error } = await sb.from('posts').insert({
+        kindergarten_id: S.kg.id, class_id, author_id: S.profile.id,
+        kind, body, photo_paths: paths
+      }).select().single();
+      if(error) throw error;
+      if(!S.posts.find(p=>p.id===data.id)) S.posts.unshift(data);
+      notifyServer({ type:'post', post_id: data.id });
+      closeSheet(); toast(isAct?'تم نشر النشاط':'تم إرسال الإعلان'); render();
+    }catch(err){
+      sheetPanel.querySelector('#cmsg').innerHTML = '<div class="err">تعذّر النشر: '+esc(err.message)+'</div>';
+      btn.disabled=false; btn.textContent='نشر';
+    }
+  };
+}
+
+/* ================= parent ================= */
+function viewParent(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+  if(!S.myChildren.length){
+    wrap.appendChild(el('<div class="empty">لم يتم ربط حسابك بطفل بعد. راجع إدارة الروضة.</div>'));
+    return wrap;
+  }
+  S.myChildren.forEach(c => {
+    const st = statusOf(c.id);
+    const cls = S.classes.find(x=>x.id===c.class_id);
+    const txt = st.k==='in' ? first(c.full_name) + ' في الروضة الآن'
+              : st.k==='left' ? first(c.full_name) + ' غادر الروضة'
+              : first(c.full_name) + ' لم يصل بعد';
+    const sub = st.t ? (st.k==='in'?'الوصول ':'المغادرة ') + fmtTime(st.t) : fmtDay(new Date());
+    wrap.appendChild(el(`<div class="hero ${st.k==='in'?'':st.k}">
+      <span class="who-kid">${esc(c.full_name)}${cls?' · فصل '+esc(cls.name):''}</span>
+      <div class="st"><span class="dot"></span><span>${esc(txt)}</span></div>
+      <small>${esc(sub)}</small>
+    </div>`));
+
+    // reported absences for today and tomorrow
+    [today(), dayOffset(1)].forEach(d => {
+      const ab = absenceOf(c.id, d);
+      if(!ab) return;
+      const n = el(`<div class="absent-note">
+        <span class="t">بلاغ غياب ${esc(dayLabel(d))} · ${esc(REASONS[ab.reason]||ab.reason)}${ab.note?' · '+esc(ab.note):''}</span>
+        <button type="button">إلغاء</button>
+      </div>`);
+      n.querySelector('button').onclick = async () => {
+        const { error } = await sb.rpc('cancel_absence', { p_child: c.id, p_day: d });
+        if(error){ toast('تعذّر الإلغاء'); return; }
+        delete S.absences[c.id + '|' + d];
+        toast('تم إلغاء البلاغ'); render();
+      };
+      wrap.appendChild(n);
+    });
+
+    // the bus, when the child rides it
+    ['am','pm'].forEach(tp => {
+      const r = S.myBus[c.id + '|' + tp];
+      const st = busState(r);
+      if(st === 'none') return;
+      const t = st==='arrived' ? r.arrived_at : r.boarded_at;
+      const txt = tp==='am'
+        ? (st==='boarded' ? first(c.full_name)+' في الحافلة متجهًا للروضة' : first(c.full_name)+' وصل الروضة بالحافلة')
+        : (st==='boarded' ? first(c.full_name)+' في الحافلة عائدًا للمنزل' : first(c.full_name)+' وصل المنزل بأمان');
+      wrap.appendChild(el(`<div class="pickup-note">
+        <span class="t">${ICONS.car} ${esc(txt)} · ${esc(fmtTime(t))}</span>
+      </div>`));
+    });
+
+    // who is collecting the child today
+    const pk = pickupOf(c.id, today());
+    if(pk){
+      const n = el(`<div class="pickup-note">
+        <span class="t">يستلم ${esc(first(c.full_name))} اليوم: <b>${esc(pk.person_name)}</b>${pk.relation?' · '+esc(pk.relation):''}${pk.phone?' · '+esc(pk.phone):''}</span>
+        <button type="button">إلغاء</button>
+      </div>`);
+      n.querySelector('button').onclick = async () => {
+        const r = await safe(sb.rpc('clear_pickup', { p_child: c.id, p_day: today() }));
+        if(!r){ toast('تعذّر الإلغاء'); return; }
+        delete S.pickups[c.id + '|' + today()];
+        toast('تم الإلغاء'); render();
+      };
+      wrap.appendChild(n);
+    }
+
+    const acts = el('<div class="actions2"></div>');
+    if(!absenceOf(c.id, today()) || !absenceOf(c.id, dayOffset(1))){
+      const b = el(`<button class="btn soft sm">إبلاغ عن غياب</button>`);
+      b.onclick = () => { if(!previewBlock()) absenceSheet(c); };
+      acts.appendChild(b);
+    }
+    const pb = el(`<button class="btn soft sm">${pk?'تغيير المستلم':'من سيستلم الطفل؟'}</button>`);
+    pb.onclick = () => { if(!previewBlock()) pickupSheet(c); };
+    acts.appendChild(pb);
+    wrap.appendChild(acts);
+  });
+  wrap.appendChild(buildFeed());
+  return wrap;
+}
+
+function absenceSheet(child){
+  const days = [today(), dayOffset(1)].filter(d => !absenceOf(child.id, d));
+  openSheet(`
+    <h3>إبلاغ عن غياب</h3>
+    <p class="help">${esc(child.full_name)} — سيصل البلاغ لمعلمة الفصل مباشرة.</p>
+    <div class="field">
+      <label for="ad">اليوم</label>
+      <select id="ad">${days.map(d=>`<option value="${d}">${esc(dayLabel(d))}</option>`).join('')}</select>
+    </div>
+    <div class="field">
+      <label for="ar">السبب</label>
+      <select id="ar">${Object.entries(REASONS).map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label for="an">ملاحظة (اختياري)</label><input id="an" placeholder="مثال: موعد في المستشفى"></div>
+    <div id="amsg"></div>
+    <button class="btn" id="asend">إرسال البلاغ</button>
+    <button class="btn soft sm" id="acancel">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#acancel').onclick = closeSheet;
+  sheetPanel.querySelector('#asend').onclick = async () => {
+    const btn = sheetPanel.querySelector('#asend'); btn.disabled = true; btn.textContent = 'جارٍ الإرسال…';
+    const p_day = sheetPanel.querySelector('#ad').value;
+    const p_reason = sheetPanel.querySelector('#ar').value;
+    const p_note = sheetPanel.querySelector('#an').value.trim() || null;
+    const { data, error } = await sb.rpc('report_absence', { p_child: child.id, p_day, p_reason, p_note });
+    if(error){
+      sheetPanel.querySelector('#amsg').innerHTML = '<div class="err">تعذّر الإرسال: '+esc(error.message)+'</div>';
+      btn.disabled = false; btn.textContent = 'إرسال البلاغ'; return;
+    }
+    S.absences[child.id + '|' + p_day] = data;
+    notifyServer({ type:'absence', child_id: child.id, day: p_day });
+    closeSheet(); toast('تم إرسال البلاغ للروضة'); render();
+  };
+}
+
+function pickupSheet(child){
+  const existing = pickupOf(child.id, today());
+  openSheet(`
+    <h3>من سيستلم ${esc(first(child.full_name))}؟</h3>
+    <p class="help">يظهر للمعلمة عند وقت الخروج اليوم فقط.</p>
+    <div class="field"><label for="pn">اسم المستلم</label><input id="pn" value="${existing?esc(existing.person_name):''}" placeholder="الاسم الكامل"></div>
+    <div class="field"><label for="pr">صلة القرابة</label><input id="pr" value="${existing&&existing.relation?esc(existing.relation):''}" placeholder="مثال: الخال"></div>
+    <div class="field"><label for="pp">رقم الجوال</label><input id="pp" inputmode="tel" value="${existing&&existing.phone?esc(existing.phone):''}" placeholder="05XXXXXXXX"></div>
+    <div id="pmsg"></div>
+    <button class="btn" id="psave">حفظ</button>
+    <button class="btn soft sm" id="pcancel">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#pcancel').onclick = closeSheet;
+  sheetPanel.querySelector('#psave').onclick = async () => {
+    const name = sheetPanel.querySelector('#pn').value.trim();
+    if(!name){ sheetPanel.querySelector('#pmsg').innerHTML = '<div class="err">اكتب اسم المستلم.</div>'; return; }
+    const btn = sheetPanel.querySelector('#psave'); btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+    const r = await safe(sb.rpc('set_pickup', {
+      p_child: child.id, p_day: today(), p_name: name,
+      p_relation: sheetPanel.querySelector('#pr').value.trim() || null,
+      p_phone: sheetPanel.querySelector('#pp').value.trim() || null
+    }));
+    if(!r){
+      sheetPanel.querySelector('#pmsg').innerHTML = '<div class="err">تعذّر الحفظ. حدّث الصفحة وحاول مرة أخرى.</div>';
+      btn.disabled = false; btn.textContent = 'حفظ'; return;
+    }
+    S.pickups[child.id + '|' + today()] = r.data;
+    notifyServer({ type:'pickup', child_id: child.id, day: today() });
+    closeSheet(); toast('تم إبلاغ الروضة'); render();
+  };
+}
+
+function buildFeed(){
+  const staff = S.profile.role !== 'parent';
+  const box = el('<div style="display:flex;flex-direction:column;gap:14px"></div>');
+
+  // ---- scope selector: classes for staff, children for parents with more than one ----
+  let scopes = [];
+  if(staff){
+    scopes = [{id:'all', label:'كل الفصول'}].concat(S.classes.map(c => ({id:c.id, label:'فصل '+c.name})));
+  } else if(S.myChildren.length > 1){
+    scopes = [{id:'all', label:'الكل'}].concat(S.myChildren.map(c => ({id:c.id, label:first(c.full_name)})));
+  }
+  if(scopes.length && !scopes.find(x=>x.id===S.feedScope)) S.feedScope = 'all';
+
+  if(scopes.length > 1){
+    const chips = el('<div class="chips"></div>');
+    scopes.forEach(sc => {
+      const b = el(`<button class="chip" aria-pressed="${sc.id===S.feedScope}">${esc(sc.label)}</button>`);
+      b.onclick = () => { S.feedScope = sc.id; render(); };
+      chips.appendChild(b);
+    });
+    box.appendChild(chips);
+  }
+
+  // ---- which children and which class does the scope cover ----
+  let kids, classIds;
+  if(staff){
+    kids = S.feedScope === 'all' ? S.children : S.children.filter(c => c.class_id === S.feedScope);
+    classIds = S.feedScope === 'all' ? S.classes.map(c=>c.id) : [S.feedScope];
+  } else {
+    kids = S.feedScope === 'all' ? S.myChildren : S.myChildren.filter(c => c.id === S.feedScope);
+    classIds = kids.map(c => c.class_id).filter(Boolean);
+  }
+
+  const items = [];
+  kids.forEach(c => {
+    const a = S.attendance[c.id];
+    const fem = c.gender === 'f';
+    if(a && a.check_in_at) items.push({t:a.check_in_at, kind:'in', title:(fem?'وصلت ':'وصل ')+first(c.full_name)+' إلى الروضة', sub:fmtTime(a.check_in_at)});
+    if(a && a.check_out_at) items.push({t:a.check_out_at, kind:'out', title:(fem?'غادرت ':'غادر ')+first(c.full_name)+' الروضة', sub:fmtTime(a.check_out_at)});
+  });
+
+  S.posts
+    .filter(p => p.class_id === null || classIds.includes(p.class_id))
+    .forEach(p => {
+      const cls = S.classes.find(x => x.id === p.class_id);
+      items.push({
+        t:p.created_at, kind:p.kind==='activity'?'photo':'megaphone',
+        title:p.kind==='activity'?'نشاط جديد':'إعلان من الإدارة',
+        sub:fmtTime(p.created_at) + (cls ? ' · فصل ' + cls.name : ' · لكل الروضة'),
+        body:p.body, photos:p.photo_paths||[],
+        postId:p.id, authorId:p.author_id
+      });
+    });
+
+  items.sort((a,b)=> new Date(b.t)-new Date(a.t));
+
+  const feed = el('<div class="feed"></div>');
+  box.appendChild(feed);
+  if(!items.length){ feed.appendChild(el('<div class="empty">لا توجد أخبار هنا بعد.</div>')); return box; }
+
+  const TINT = { in:'tint-green', out:'tint-yellow', photo:'tint-blue', megaphone:'' };
+  const ICCLR = { in:'green', out:'yellow', photo:'blue', megaphone:'pink' };
+
+  items.slice(0,25).forEach(it => {
+    const node = el(`<article class="post ${TINT[it.kind]||''}">
+      <div class="post-head">
+        <div class="ic ${ICCLR[it.kind]||'blue'}">${ICONS[it.kind]||ICONS.photo}</div>
+        <div class="t"><b>${esc(it.title)}</b><span>${esc(it.sub)}</span></div>
+      </div>
+      ${it.body?'<p>'+esc(it.body)+'</p>':''}
+    </article>`);
+    feed.appendChild(node);
+
+    // ---- delete a post: its author, or any admin of this kindergarten ----
+    if(it.postId && canDeletePost(it)){
+      const head = node.querySelector('.post-head');
+      const dbtn = el(`<button class="postdel" title="حذف المنشور" aria-label="حذف المنشور">${ICONS.trash}</button>`);
+      dbtn.onclick = () => confirmDeletePost(it);
+      head.appendChild(dbtn);
+    }
+
+    const photos = it.photos || [];
+    if(photos.length){
+      const n = Math.min(photos.length, 3);
+      const grid = el(`<div class="shots n${n}"></div>`);
+      node.appendChild(grid);
+      sb.storage.from('photos').createSignedUrls(photos, 3600).then(({data})=>{
+        const urls = (data||[]).map(u=>u.signedUrl).filter(Boolean);
+        grid.innerHTML = '';
+        urls.slice(0,n).forEach((u,i) => {
+          const last = (i===n-1 && photos.length>n);
+          const b = el(`<button class="${last?'more':''}" ${last?`data-more="+${photos.length-n}"`:''} aria-label="عرض الصورة"><img loading="lazy" alt="صورة من النشاط" src="${u}"></button>`);
+          b.onclick = () => openPhoto(u);
+          grid.appendChild(b);
+        });
+      });
+    }
+  });
+  return box;
+}
+
+/* ---------- deleting a post ---------- */
+// the author may remove her own; an admin may remove any in her kindergarten.
+// preview mode is read-only, matching the rest of the app.
+function canDeletePost(it){
+  if(S.preview) return false;
+  const r = S.profile.role;
+  if(r === 'parent' || r === 'bus') return false;
+  if(r === 'admin') return true;
+  return it.authorId && it.authorId === S.profile.id;
+}
+
+function confirmDeletePost(it){
+  const what = it.kind === 'photo' ? 'النشاط' : 'الإعلان';
+  const n = (it.photos || []).length;
+  confirmAction(
+    'حذف ' + what,
+    `سيُحذف هذا ${what} من صفحة الأهل نهائيًا${n ? `، مع ${n} من الصور المرفقة` : ''}. لا يمكن التراجع.`,
+    'حذف نهائيًا',
+    async () => {
+      const r = await safe(sb.rpc('delete_post', { p_id: it.postId }));
+      if(!r) return 'تعذّر الحذف — تأكد من صلاحيتك ومن تشغيل تحديث قاعدة البيانات.';
+      S.posts = S.posts.filter(p => p.id !== it.postId);
+      toast('تم حذف ' + what);
+      render();
+    });
+}
+
+/* ================= admin ================= */
+function viewAdmin(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+  const TABS = [['overview','نظرة عامة'],['children','الأطفال'],['classes','الفصول'],['staff','المعلمات'],['reports','التقارير']];
+  const nav = el('<div class="subnav"></div>');
+  TABS.forEach(([k,l])=>{
+    const b = el(`<button aria-pressed="${S.adminTab===k}">${l}</button>`);
+    b.onclick = async ()=>{ S.adminTab = k; if(k==='staff' && !S.staff.length) await loadStaff(); render(); };
+    nav.appendChild(b);
+  });
+  wrap.appendChild(nav);
+
+  if(S.adminTab==='overview') wrap.appendChild(adminOverview());
+  else if(S.adminTab==='children') wrap.appendChild(adminChildren());
+  else if(S.adminTab==='classes') wrap.appendChild(adminClasses());
+  else if(S.adminTab==='reports') wrap.appendChild(adminReports());
+  else wrap.appendChild(adminStaff());
+  return wrap;
+}
+
+function adminOverview(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+  const total = S.children.length;
+  const inN = S.children.filter(c=>statusOf(c.id).k==='in').length;
+  const leftN = S.children.filter(c=>statusOf(c.id).k==='left').length;
+  const absN = S.children.filter(c=>statusOf(c.id).k==='out' && absenceOf(c.id)).length;
+
+  wrap.appendChild(el(`<div class="counter">
+    <div class="pill blue"><b class="num">${total}</b><span>الأطفال</span></div>
+    <div class="pill ok"><b class="num">${inN}</b><span>في الروضة</span></div>
+    <div class="pill left"><b class="num">${leftN}</b><span>غادر</span></div>
+    <div class="pill no"><b class="num">${absN}</b><span>غياب مُبلّغ</span></div>
+  </div>`));
+
+  const bars = el('<div class="card"><h3>الحضور حسب الفصل</h3><div class="bars"></div></div>');
+  const bx = bars.querySelector('.bars');
+  S.classes.forEach(c => {
+    const kids = S.children.filter(k=>k.class_id===c.id);
+    const pr = kids.filter(k=>statusOf(k.id).k!=='out').length;
+    const pct = kids.length ? Math.round(pr/kids.length*100) : 0;
+    bx.appendChild(el(`<div class="bar">
+      <div class="lbl"><span>فصل ${esc(c.name)}</span><span class="track"><span class="fill" style="width:${pct}%"></span></span></div>
+      <span class="val num">${pr}/${kids.length}</span>
+    </div>`));
+  });
+  wrap.appendChild(bars);
+
+  const abs = S.children
+    .map(c => ({c, ab: absenceOf(c.id)}))
+    .filter(x => x.ab);
+  if(abs.length){
+    const card = el('<div class="card"><h3>بلاغات الغياب اليوم</h3><div class="rowlist"></div></div>');
+    const lx = card.querySelector('.rowlist');
+    abs.forEach(({c,ab}) => lx.appendChild(el(`<div class="row" style="cursor:default">
+      <span class="face">${esc(initial(c.full_name))}</span>
+      <span class="nm"><b>${esc(c.full_name)}</b><span>${esc(REASONS[ab.reason]||ab.reason)}${ab.note?' · '+esc(ab.note):''}</span></span>
+    </div>`)));
+    wrap.appendChild(card);
+  }
+
+  if(S.resets.length){
+    const rc = el('<div class="card"><h3>طلبات إعادة تعيين كلمة المرور</h3><div class="rowlist"></div></div>');
+    const rx = rc.querySelector('.rowlist');
+    S.resets.forEach(r => {
+      const row = el(`<div class="row" style="cursor:default">
+        <span class="nm"><b>${esc(r.full_name || r.phone)}</b><span>${esc(r.phone)}</span></span>
+        <span class="tagx free">إصدار</span>
+      </div>`);
+      if(r.profile_id){
+        row.style.cursor = 'pointer';
+        row.onclick = () => resetPasswordFor(r.profile_id, r.full_name || r.phone);
+      } else {
+        row.querySelector('.tagx').textContent = 'رقم غير مسجّل';
+        row.querySelector('.tagx').className = 'tagx';
+      }
+      rx.appendChild(row);
+    });
+    wrap.appendChild(rc);
+  }
+
+  const test = el(`<div class="card">
+    <h3>فحص الإشعارات</h3>
+    <p class="help">يرسل إشعارًا تجريبيًا لكل جهاز مُفعَّل في الروضة.</p>
+    <div id="tres"></div>
+    <button class="btn soft sm" id="sendTest">إرسال إشعار تجريبي</button>
+  </div>`);
+  test.querySelector('#sendTest').onclick = async (e) => {
+    const b = e.target; b.disabled = true; b.textContent = 'جارٍ الإرسال…';
+    const box = test.querySelector('#tres');
+    try{
+      const { data, error } = await sb.functions.invoke('notify', { body:{ type:'test' } });
+      if(error) throw error;
+      box.innerHTML = data && data.sent
+        ? '<div class="ok">تم الإرسال إلى ' + data.sent + ' جهاز.</div>'
+        : '<div class="err">لا توجد أجهزة مفعّلة بعد.</div>';
+    }catch(err){ box.innerHTML = '<div class="err">فشل الإرسال: ' + esc(err.message || String(err)) + '</div>'; }
+    b.disabled = false; b.textContent = 'إرسال إشعار تجريبي';
+  };
+  wrap.appendChild(test);
+  return wrap;
+}
+
+/* ---------- children ---------- */
+function adminChildren(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:12px"></div>');
+  const bar = el('<div class="actions2"></div>');
+  const addBtn = el('<button class="btn sm">إضافة طفل</button>');
+  addBtn.onclick = addChildSheet;
+  const impBtn = el('<button class="btn blue sm">استيراد قائمة</button>');
+  impBtn.onclick = importSheet;
+  bar.append(addBtn, impBtn);
+  wrap.appendChild(bar);
+
+  const search = el(`<div class="field"><input id="q" placeholder="ابحث بالاسم…" value="${esc(S.childQuery)}"></div>`);
+  wrap.appendChild(search);
+
+  const list = el('<div class="rowlist"></div>');
+  wrap.appendChild(list);
+
+  const paint = () => {
+    const q = S.childQuery.trim();
+    const kids = S.children.filter(c => !q || c.full_name.includes(q));
+    list.innerHTML = '';
+    if(!kids.length){ list.appendChild(el('<div class="empty">لا نتائج.</div>')); return; }
+    kids.slice(0,80).forEach(c => {
+      const cls = S.classes.find(x=>x.id===c.class_id);
+      const inv = S.invites.find(i => i.child_id === c.id);
+      const seats = inv ? `${inv.uses||0}/${inv.max_uses||1}` : '—';
+      const b = el(`<button class="row">
+        <span class="face">${esc(initial(c.full_name))}</span>
+        <span class="nm"><b>${esc(c.full_name)}</b><span>${cls?'فصل '+esc(cls.name):'بدون فصل'}</span></span>
+        <span class="tagx ${inv && (inv.uses||0) < (inv.max_uses||1) ? 'free':'full'}">${esc(seats)} أولياء</span>
+      </button>`);
+      b.onclick = () => childSheet(c);
+      list.appendChild(b);
+    });
+  };
+  search.querySelector('#q').oninput = (e) => { S.childQuery = e.target.value; paint(); };
+  paint();
+
+  if(S.children.length && !S.preview) wrap.appendChild(dangerZone());
+  return wrap;
+}
+
+/* ---------- danger zone: wipe the whole roster ---------- */
+// for clearing trial data before the real roster is imported.
+function dangerZone(){
+  const n = S.children.length;
+  const card = el(`<div class="card danger">
+    <h3>حذف جميع الأطفال</h3>
+    <p class="help">يحذف <b>${kidsWord(n)}</b> مع سجلات الحضور والغياب والاستلام والحافلة وروابط أولياء الأمور وأكواد الدعوة الخاصة بهم.
+    تبقى الفصول وحسابات المعلمات والمنشورات كما هي. لا يمكن التراجع.</p>
+    <button class="btn soft sm" id="wipe" style="color:var(--pink)">حذف جميع الأطفال…</button>
+  </div>`);
+  card.querySelector('#wipe').onclick = wipeChildrenSheet;
+  return card;
+}
+
+function wipeChildrenSheet(){
+  const n = S.children.length;
+  openSheet(`
+    <h3>حذف جميع الأطفال</h3>
+    <p class="help">سيُحذف <b>${kidsWord(n)}</b> نهائيًا من ${esc(brandName())}، ومعهم كل سجلاتهم.
+    أولياء الأمور المرتبطون بهم لن يبقى لديهم أطفال في التطبيق.</p>
+    <p class="help">للتأكيد، اكتب <b>DELETE</b> في الحقل التالي.</p>
+    <div class="field"><input id="wcf" class="confirmbox" placeholder="DELETE" autocapitalize="characters" autocomplete="off"></div>
+    <div id="wmsg"></div>
+    <button class="btn" id="wgo" style="background:var(--pink)" disabled>حذف ${kidsWord(n)} نهائيًا</button>
+    <button class="btn soft sm" id="wx">تراجع</button>
+  `);
+  const inp = sheetPanel.querySelector('#wcf');
+  const go  = sheetPanel.querySelector('#wgo');
+  sheetPanel.querySelector('#wx').onclick = closeSheet;
+  inp.oninput = () => { go.disabled = inp.value.trim().toUpperCase() !== 'DELETE'; };
+  go.onclick = async () => {
+    go.disabled = true; go.textContent = 'جارٍ الحذف…';
+    const r = await safe(sb.rpc('admin_delete_all_children', { p_confirm: 'DELETE' }));
+    if(!r){
+      sheetPanel.querySelector('#wmsg').innerHTML =
+        '<div class="err">تعذّر الحذف — تأكد من صلاحيتك ومن تشغيل تحديث قاعدة البيانات.</div>';
+      go.disabled = false; go.textContent = 'حذف ' + kidsWord(n) + ' نهائيًا'; return;
+    }
+    closeSheet();
+    await loadCore();
+    await safe(loadInvites());
+    toast('تم حذف ' + kidsWord(r.data ?? n));
+    render();
+  };
+}
+
+function addChildSheet(){
+  openSheet(`
+    <h3>إضافة طفل</h3>
+    <div class="field"><label for="cn">اسم الطفل</label><input id="cn" placeholder="الاسم الثلاثي"></div>
+    <div class="field"><label for="cc">الفصل</label>
+      <select id="cc">${S.classes.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+    <div class="field"><label for="cg">الجنس</label>
+      <select id="cg"><option value="f">بنت</option><option value="m">ولد</option></select></div>
+    <div id="cmsg"></div>
+    <button class="btn" id="csave">إضافة</button>
+    <button class="btn soft sm" id="ccancel">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#ccancel').onclick = closeSheet;
+  sheetPanel.querySelector('#csave').onclick = async () => {
+    const name = sheetPanel.querySelector('#cn').value.trim();
+    if(!name){ sheetPanel.querySelector('#cmsg').innerHTML = '<div class="err">اكتب الاسم.</div>'; return; }
+    const btn = sheetPanel.querySelector('#csave'); btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+    const { data, error } = await sb.rpc('add_child', {
+      p_name: name, p_class: sheetPanel.querySelector('#cc').value,
+      p_gender: sheetPanel.querySelector('#cg').value, p_birth: null
+    });
+    if(error){
+      sheetPanel.querySelector('#cmsg').innerHTML = '<div class="err">تعذّر الحفظ: '+esc(error.message)+'</div>';
+      btn.disabled = false; btn.textContent = 'إضافة'; return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    await refresh(); await loadInvites();
+    openSheet(`<h3>تمت إضافة ${esc(name)}</h3>
+      <p class="help">أعطِ هذا الرمز لأولياء أمره. يصلح لأربعة أشخاص (الأب، الأم، …).</p>
+      <div class="codebox"><b>${esc(row.code)}</b><button id="cp">نسخ</button></div>
+      <button class="btn" id="cdone">تم</button>`);
+    sheetPanel.querySelector('#cp').onclick = (e)=>copyText(row.code, e.target);
+    sheetPanel.querySelector('#cdone').onclick = ()=>{ closeSheet(); render(); };
+  };
+}
+
+// CSV or pasted rows: الاسم , الفصل , الجنس
+// Which column is which. Order matters: «اسم الحافلة» must not be read as the
+// child's name, and «جوال ولي الأمر» must not be read as a class.
+function headerRole(h){
+  const t = String(h||'').trim();
+  if(!t) return null;
+  if(/حافلة|باص|bus/i.test(t))            return /اسم|خط|رقم|route|no/i.test(t) ? 'route' : 'bus';
+  if(/جوال|هاتف|رقم|phone|mobile/i.test(t)) return 'phone';           // read, never imported
+  if(/فصل|صف|class|group/i.test(t))       return 'cls';
+  if(/جنس|نوع|gender|sex/i.test(t))       return 'gender';
+  if(/اسم|طفل|name|child|student/i.test(t)) return 'name';
+  return null;
+}
+const YES = v => /^(1|نعم|ايوه|أيوه|صح|yes|y|true|✓|✔)$/i.test(String(v||'').trim());
+const MALE = v => /^(m|male|ذكر|ولد|بنين)$/i.test(String(v||'').trim());
+
+// A child's name, not a number or a sentence of instructions. Guards against
+// importing the wrong sheet of a workbook.
+function looksLikeName(s){
+  const t = String(s || '').trim();
+  if(t.length < 2 || t.length > 60) return false;
+  if(/^[\d.,\s%-]+$/.test(t)) return false;              // pure numbers
+  if(t.split(/\s+/).length > 8) return false;            // a sentence
+  if(/[«»:;•]|\.$/.test(t)) return false;                // prose punctuation
+  return /[؀-ۿA-Za-z]/.test(t);                // has actual letters
+}
+
+function rowsFromMatrix(mat){
+  if(!mat || !mat.length) return [];
+  let idx = { name:0, cls:1, gender:2, bus:-1, route:-1 }, start = 0;
+  const first = mat[0].map(x=>String(x==null?'':x).trim());
+  const roles = first.map(headerRole);
+  if(roles.some(r=>r==='name')){
+    start = 1;
+    idx = { name:-1, cls:-1, gender:-1, bus:-1, route:-1 };
+    roles.forEach((r,i)=>{ if(r && r!=='phone' && idx[r] === -1) idx[r] = i; });
+  }
+  const out = [];
+  for(let i=start;i<mat.length;i++){
+    const p = mat[i].map(x=>String(x==null?'':x).trim());
+    const name = (idx.name>=0 ? p[idx.name] : p[0]) || '';
+    if(!name) continue;
+    if(/^(مثال|example)/i.test(name)) continue;          // skip the template's sample row
+    if(!looksLikeName(name)) continue;                   // skip prose / numbers
+    const bus = idx.bus>=0 ? YES(p[idx.bus]) : false;
+    out.push({
+      name,
+      class:  idx.cls>=0 ? (p[idx.cls]||'') : '',
+      gender: MALE(idx.gender>=0 ? p[idx.gender] : '') ? 'm' : 'f',
+      bus,
+      route:  bus && idx.route>=0 ? (p[idx.route]||'') : ''
+    });
+  }
+  return out;
+}
+
+function parseRows(text){
+  const lines = String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if(!lines.length) return [];
+  const split = (l) => l.includes('\t') ? l.split('\t') : l.split(',');
+  return rowsFromMatrix(lines.map(l => split(l).map(x=>x.trim())));
+}
+
+// SheetJS, fetched only when someone actually imports a workbook
+let xlsxLib = null;
+function loadXlsx(){
+  if(xlsxLib) return Promise.resolve(xlsxLib);
+  if(window.XLSX){ xlsxLib = window.XLSX; return Promise.resolve(xlsxLib); }
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = () => { xlsxLib = window.XLSX; res(xlsxLib); };
+    s.onerror = () => rej(new Error('no-xlsx'));
+    document.head.appendChild(s);
+  });
+}
+async function rowsFromWorkbook(file){
+  const XL = await loadXlsx();
+  const wb = XL.read(await file.arrayBuffer(), { type:'array' });
+  // prefer the data sheet; fall back to the first one that has a name column
+  const names = wb.SheetNames;
+  // "الأطفال" does not contain "طفل" (the alef sits between ف and ل), so match
+  // on "طف" instead, and always try an instructions sheet last.
+  const isData  = n => /طف|children|kids|بيانات|data|قائمة|أسماء|اسماء/i.test(n);
+  const isGuide = n => /تعليم|إرشاد|ارشاد|دليل|instruction|readme|guide|help/i.test(n);
+  // an instructions sheet is never a source of children, even if every other
+  // sheet comes back empty — better to report "no rows" than to import prose.
+  let order = names.filter(n => isData(n) && !isGuide(n))
+    .concat(names.filter(n => !isData(n) && !isGuide(n)));
+  if(!order.length) order = names.slice();
+
+  for(const nm of order){
+    const mat = XL.utils.sheet_to_json(wb.Sheets[nm], { header:1, blankrows:false, defval:'' });
+    const rows = rowsFromMatrix(mat);
+    if(rows.length) return Object.assign(rows, { sheet: nm });
+  }
+  return [];
+}
+
+function importSheet(){
+  openSheet(`
+    <h3>استيراد قائمة الأطفال</h3>
+    <p class="help">ارفع ملف Excel الجاهز، أو ملف CSV. الأعمدة: اسم الطفل، الفصل، الجنس، يركب الحافلة، اسم الحافلة. الفصول غير الموجودة تُنشأ تلقائيًا، ويُصدَر لكل طفل رمز ولي أمر.</p>
+    <div class="field"><label for="if">ملف Excel أو CSV</label><input id="if" type="file" accept=".xlsx,.xls,.csv,text/csv,text/plain"></div>
+    <div class="field"><label for="it">أو الصق الصفوف هنا</label>
+      <textarea id="it" rows="5" placeholder="الاسم,الفصل,الجنس&#10;لمى العتيبي,الفراشات,أنثى&#10;تركي الحربي,النحل,ذكر"></textarea></div>
+    <div id="iprev"></div>
+    <div id="imsg"></div>
+    <button class="btn" id="igo">معاينة</button>
+    <button class="btn soft sm" id="ix">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#ix').onclick = closeSheet;
+
+  let picked = null;                       // rows parsed straight from a workbook
+  sheetPanel.querySelector('#if').onchange = async (e) => {
+    const f = e.target.files[0]; if(!f) return;
+    const msg = sheetPanel.querySelector('#imsg');
+    picked = null;
+    if(/\.(xlsx|xls)$/i.test(f.name)){
+      msg.innerHTML = '<p class="help">جارٍ قراءة الملف…</p>';
+      try{
+        picked = await rowsFromWorkbook(f);
+        msg.innerHTML = picked.length
+          ? '<div class="ok">قُرئ ' + picked.length + ' صفًا من ورقة «' + esc(picked.sheet || '') + '».</div>'
+          : '<div class="err">لم يُقرأ أي صف — تأكد أن العمود الأول فيه أسماء الأطفال.</div>';
+      }catch(err){
+        msg.innerHTML = '<div class="err">تعذّرت قراءة ملف Excel. احفظه بصيغة CSV وأعد المحاولة.</div>';
+      }
+      sheetPanel.querySelector('#it').value = '';
+    } else {
+      sheetPanel.querySelector('#it').value = await f.text();
+      msg.innerHTML = '';
+    }
+  };
+
+  sheetPanel.querySelector('#igo').onclick = async (e) => {
+    const typed = sheetPanel.querySelector('#it').value.trim();
+    const rows = typed ? parseRows(typed) : (picked || []);
+    const prev = sheetPanel.querySelector('#iprev');
+    const msg = sheetPanel.querySelector('#imsg');
+    if(!rows.length){ msg.innerHTML = '<div class="err">لم يُقرأ أي صف.</div>'; return; }
+
+    if(e.target.textContent === 'معاينة'){
+      const classes = Array.from(new Set(rows.map(r=>r.class).filter(Boolean)));
+      const known = classes.filter(c => S.classes.some(x=>x.name===c));
+      const isNew = classes.filter(c => !known.includes(c));
+      prev.innerHTML = `<div class="ok">${rows.length} طفل جاهز للاستيراد.</div>` +
+        (isNew.length ? `<p class="help">فصول ستُنشأ: ${esc(isNew.join('، '))}</p>` : '') +
+        `<p class="help">يركب الحافلة: ${rows.filter(r=>r.bus).length} من ${rows.length}</p>` +
+        `<div class="tblwrap"><table class="tbl"><thead><tr><th>الاسم</th><th>الفصل</th><th>الجنس</th><th>الحافلة</th></tr></thead><tbody>` +
+        rows.slice(0,8).map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.class||'—')}</td><td>${r.gender==='m'?'ذكر':'أنثى'}</td><td>${r.bus?esc(r.route||'نعم'):'—'}</td></tr>`).join('') +
+        `</tbody></table></div>` + (rows.length>8 ? `<p class="help">…و${rows.length-8} صفًا آخر.</p>` : '');
+      e.target.textContent = 'استيراد ' + rows.length + ' طفل';
+      return;
+    }
+
+    e.target.disabled = true; e.target.textContent = 'جارٍ الاستيراد…';
+    const r = await safe(sb.rpc('add_children_bulk', { p_rows: rows }));
+    if(!r || !r.data){
+      msg.innerHTML = '<div class="err">تعذّر الاستيراد — تأكد من تشغيل تحديث قاعدة البيانات.</div>';
+      e.target.disabled = false; e.target.textContent = 'استيراد'; return;
+    }
+    const made = r.data;
+    await refresh(); await loadInvites();
+    openSheet(`<h3>تم استيراد ${made.length} طفل</h3>
+      <p class="help">هذه رموز أولياء الأمور. كل رمز يصلح لأربعة أشخاص.</p>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>الطفل</th><th>الفصل</th><th>الرمز</th></tr></thead>
+      <tbody>${made.map(x=>`<tr><td>${esc(x.full_name)}</td><td>${esc(x.class_name||'—')}</td><td>${esc(x.code)}</td></tr>`).join('')}</tbody></table></div>
+      <button class="btn" id="idl">تنزيل الرموز CSV</button>
+      <button class="btn soft sm" id="idone">تم</button>`);
+    sheetPanel.querySelector('#idl').onclick = () => {
+      const head = 'الطفل,الفصل,رمز ولي الأمر\n';
+      const body = made.map(x=>[x.full_name, x.class_name||'', x.code].join(',')).join('\n');
+      const blob = new Blob(['﻿'+head+body], {type:'text/csv;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = 'parent-codes.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+    sheetPanel.querySelector('#idone').onclick = ()=>{ closeSheet(); render(); };
+  };
+}
+
+
+/* ================= parent card: one image the director sends on WhatsApp ================= */
+const CARD_W = 1080, CARD_H = 1920;
+
+function cardPalette(){
+  const t = (S.kg && S.kg.theme) || {};
+  return {
+    pink: t.pink || '#E0206E', blue: t.blue || '#24A7E1',
+    green: t.green || '#7FB227', yellow: t.yellow || '#EFB513'
+  };
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+
+// wraps Arabic properly because the browser measures the shaped text
+function wrapLines(ctx, text, maxW){
+  const words = String(text).split(' ');
+  const lines = []; let line = '';
+  words.forEach(w => {
+    const t = line ? line + ' ' + w : w;
+    if(ctx.measureText(t).width > maxW && line){ lines.push(line); line = w; }
+    else line = t;
+  });
+  if(line) lines.push(line);
+  return lines;
+}
+
+function drawParentCard(ctx, d){
+  const P = cardPalette();
+  const R = CARD_W - 90;          // right margin (RTL origin)
+  ctx.textAlign = 'right';
+  ctx.direction = 'rtl';
+
+  ctx.fillStyle = '#FBF7F9';
+  ctx.fillRect(0,0,CARD_W,CARD_H);
+
+  // brand mark: the four dots
+  const dot = 30, gap = 10, dx = R - (dot*2+gap), dy = 96;
+  const cols = [P.pink,P.blue,P.yellow,P.green];
+  [[0,0],[1,0],[0,1],[1,1]].forEach(([cx,cy],i)=>{
+    ctx.fillStyle = cols[i];
+    ctx.beginPath();
+    ctx.arc(dx+cx*(dot+gap)+dot/2, dy+cy*(dot+gap)+dot/2, dot/2, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  ctx.fillStyle = '#241820';
+  ctx.font = '700 44px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText(d.kgName, dx - 24, dy + dot + 12);
+
+  // heading
+  ctx.fillStyle = P.pink;
+  ctx.font = '600 30px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText('بطاقة ولي الأمر', R, 236);
+
+  ctx.fillStyle = '#241820';
+  ctx.font = '700 68px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText(d.childName, R, 320);
+
+  ctx.fillStyle = '#6E6069';
+  ctx.font = '400 32px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText(d.className ? 'فصل ' + d.className : 'تابع يوم طفلك أولًا بأول', R, 376);
+
+  // the code — the one thing that must be unmistakable
+  const bx = 90, by = 430, bw = CARD_W-180, bh = 260;
+  ctx.fillStyle = '#FDE9F1';
+  roundRect(ctx,bx,by,bw,bh,36); ctx.fill();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#A5124F';
+  ctx.font = '600 30px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText('رمز الدخول', CARD_W/2, by + 74);
+
+  ctx.fillStyle = '#241820';
+  ctx.font = '700 96px "IBM Plex Mono", ui-monospace, monospace';
+  ctx.fillText(d.code, CARD_W/2, by + 186);
+
+  // the link
+  ctx.fillStyle = '#0E6E99';
+  ctx.font = '600 44px "IBM Plex Mono", ui-monospace, monospace';
+  ctx.fillText(d.host, CARD_W/2, by + bh + 92);
+  ctx.fillStyle = '#6E6069';
+  ctx.font = '400 28px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText('افتح هذا الرابط من جوالك', CARD_W/2, by + bh + 140);
+
+  // steps
+  ctx.textAlign = 'right';
+  let y = 880;
+  const steps = [
+    ['افتح الرابط أعلاه من متصفح جوالك', ''],
+    ['أضِف التطبيق إلى شاشتك الرئيسية',
+     'آيفون: زر المشاركة ⬆ ← «إضافة إلى الشاشة الرئيسية»\nأندرويد: قائمة ⋮ ← «تثبيت التطبيق»'],
+    ['افتحه من الشاشة الرئيسية وسجّل برقم جوالك', 'ثم أدخل رمز الدخول المكتوب أعلاه'],
+    ['فعّل الإشعارات عندما يطلبها', 'بدونها لن يصلك تنبيه وصول طفلك']
+  ];
+  steps.forEach(([title, sub], i) => {
+    const cy = y + 26;
+    ctx.fillStyle = P.pink;
+    ctx.beginPath(); ctx.arc(R - 27, cy, 27, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.font = '700 30px "IBM Plex Sans Arabic", sans-serif';
+    ctx.fillText(String(i+1), R - 27, cy + 11);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#241820';
+    ctx.font = '600 38px "IBM Plex Sans Arabic", sans-serif';
+    ctx.fillText(title, R - 76, cy + 12);
+    y += 70;
+
+    if(sub){
+      ctx.fillStyle = '#6E6069';
+      ctx.font = '400 30px "IBM Plex Sans Arabic", sans-serif';
+      sub.split('\n').forEach(part => {
+        wrapLines(ctx, part, CARD_W - 260).forEach(ln => {
+          ctx.fillText(ln, R - 76, y + 14); y += 46;
+        });
+      });
+    }
+    y += 52;
+  });
+
+  // the reassurance a parent actually wants
+  const nx = 90, nw = CARD_W-180, nh = 150;
+  const ny = CARD_H - 300;
+  ctx.fillStyle = '#EFF7E2';
+  roundRect(ctx,nx,ny,nw,nh,28); ctx.fill();
+  ctx.fillStyle = '#4F7212';
+  ctx.font = '600 32px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText('خصوصية طفلك', R - 30, ny + 60);
+  ctx.font = '400 27px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText('ترى طفلك أنت فقط، ولا تُنشر صوره إلا بموافقتك.', R - 30, ny + 106);
+
+  ctx.fillStyle = '#9C8F97';
+  ctx.font = '400 26px "IBM Plex Sans Arabic", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('الرمز خاص بطفلك — لا تشاركه خارج العائلة', CARD_W/2, CARD_H - 96);
+}
+
+async function parentCardSheet(child, code){
+  const cls = S.classes.find(x=>x.id===child.class_id);
+  openSheet(`
+    <h3>بطاقة ولي الأمر</h3>
+    <p class="help">صورة جاهزة لإرسالها لأهل ${esc(first(child.full_name))} على واتساب — فيها الرمز وطريقة التثبيت.</p>
+    <div id="cardwrap" style="display:flex;justify-content:center"><div class="spin"></div></div>
+    <div id="cardmsg"></div>
+    <button class="btn" id="cardsave">حفظ الصورة</button>
+    <button class="btn soft sm" id="cardshare" style="display:none">مشاركة</button>
+    <button class="btn soft sm" id="cardx">إغلاق</button>
+  `);
+  sheetPanel.querySelector('#cardx').onclick = closeSheet;
+
+  const cv = document.createElement('canvas');
+  cv.width = CARD_W; cv.height = CARD_H;
+  cv.style.cssText = 'width:100%;max-width:280px;border-radius:16px;box-shadow:var(--shadow-sm)';
+  const ctx = cv.getContext('2d');
+
+  try { if(document.fonts && document.fonts.ready) await document.fonts.ready; } catch(_){}
+  drawParentCard(ctx, {
+    kgName: brandName(),
+    childName: child.full_name,
+    className: cls ? cls.name : '',
+    code: code,
+    host: location.host
+  });
+
+  const wrap = sheetPanel.querySelector('#cardwrap');
+  if(wrap){ wrap.innerHTML = ''; wrap.appendChild(cv); }
+
+  const fname = 'rawdati-' + String(code).replace(/[^A-Za-z0-9-]/g,'') + '.png';
+  const toBlob = () => new Promise(res => cv.toBlob(res, 'image/png'));
+
+  const saveBtn = sheetPanel.querySelector('#cardsave');
+  saveBtn.onclick = async () => {
+    const blob = await toBlob();
+    if(!blob){ sheetPanel.querySelector('#cardmsg').innerHTML = '<div class="err">تعذّر إنشاء الصورة.</div>'; return; }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    toast('حُفظت الصورة');
+  };
+
+  // on a phone, sharing straight to WhatsApp beats downloading
+  const shareBtn = sheetPanel.querySelector('#cardshare');
+  if(navigator.canShare){
+    shareBtn.style.display = '';
+    shareBtn.onclick = async () => {
+      const blob = await toBlob();
+      if(!blob) return;
+      const file = new File([blob], fname, { type:'image/png' });
+      if(!navigator.canShare({ files:[file] })){ toast('المشاركة غير مدعومة على هذا الجهاز'); return; }
+      try { await navigator.share({ files:[file], title:'بطاقة ولي الأمر' }); } catch(_){}
+    };
+  }
+}
+
+function childSheet(c){
+  const cls = S.classes.find(x=>x.id===c.class_id);
+  const inv = S.invites.find(i => i.child_id === c.id);
+  openSheet(`
+    <h3>${esc(c.full_name)}</h3>
+    <p class="help">${cls?'فصل '+esc(cls.name):'بدون فصل'}</p>
+    <div class="field"><label for="en">الاسم</label><input id="en" value="${esc(c.full_name)}"></div>
+    <div class="field"><label for="ec">الفصل</label>
+      <select id="ec">${S.classes.map(x=>`<option value="${x.id}" ${x.id===c.class_id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
+    <div class="switchrow">
+      <span class="t"><b>يركب الحافلة</b><span>تراه مرافقة الحافلة وتسجّل ركوبه ووصوله</span></span>
+      <button class="sw" id="ebus" role="switch" aria-checked="${c.rides_bus?'true':'false'}"></button>
+    </div>
+    <div class="field" id="eroutebox" style="${c.rides_bus?'':'display:none'}">
+      <label for="eroute">اسم الحافلة أو الخط (اختياري)</label>
+      <input id="eroute" placeholder="مثال: حافلة ١ — حي النهضة" value="${esc(c.bus_route||'')}">
+    </div>
+    ${inv ? `<div><p class="help" style="margin-bottom:6px">رمز أولياء الأمور — استُخدم ${inv.uses||0} من ${inv.max_uses||1}</p>
+      <div class="codebox"><b>${esc(inv.code)}</b><button id="cp">نسخ</button></div></div>` : ''}
+    ${inv ? '<button class="btn blue sm" id="ecard">بطاقة ولي الأمر (صورة)</button>' : ''}
+    <div id="gbox"><p class="help">جارٍ تحميل أولياء الأمور…</p></div>
+    <div id="emsg"></div>
+    <button class="btn" id="esave">حفظ</button>
+    <button class="btn soft sm" id="earchive">أرشفة الطفل</button>
+    <button class="btn soft sm" id="ecancel">إغلاق</button>
+  `);
+  if(inv) sheetPanel.querySelector('#cp').onclick = (e)=>copyText(inv.code, e.target);
+  if(inv) sheetPanel.querySelector('#ecard').onclick = ()=>parentCardSheet(c, inv.code);
+  sheetPanel.querySelector('#ecancel').onclick = closeSheet;
+  const busSw = sheetPanel.querySelector('#ebus');
+  busSw.onclick = () => {
+    const on = busSw.getAttribute('aria-checked') !== 'true';
+    busSw.setAttribute('aria-checked', on ? 'true' : 'false');
+    sheetPanel.querySelector('#eroutebox').style.display = on ? '' : 'none';
+  };
+
+  sb.rpc('child_guardians', { p_child: c.id }).then(({data}) => {
+    const box = sheetPanel.querySelector('#gbox');
+    if(!box) return;
+    const rows = data || [];
+    if(!rows.length){ box.innerHTML = '<p class="help">لم يسجّل أي ولي أمر بعد.</p>'; return; }
+    box.innerHTML = '<p class="help" style="margin-bottom:6px">أولياء الأمور المسجّلون</p>';
+    const lx = el('<div class="rowlist"></div>');
+    rows.forEach(g => {
+      const r = el(`<button class="row"><span class="face">${esc(initial(g.full_name))}</span>
+        <span class="nm"><b>${esc(g.full_name||'—')}</b><span>${esc(g.phone||'')}</span></span>
+        <span class="tagx">كلمة المرور</span></button>`);
+      r.onclick = () => g.id ? guardianSheet(c, g) : toast('حدّث قاعدة البيانات أولًا');
+      lx.appendChild(r);
+    });
+    box.appendChild(lx);
+  });
+
+  sheetPanel.querySelector('#esave').onclick = async () => {
+    const btn = sheetPanel.querySelector('#esave'); btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+    const ridesBus = sheetPanel.querySelector('#ebus').getAttribute('aria-checked') === 'true';
+    const { error } = await sb.from('children').update({
+      full_name: sheetPanel.querySelector('#en').value.trim(),
+      class_id: sheetPanel.querySelector('#ec').value,
+      rides_bus: ridesBus,
+      bus_route: ridesBus ? (sheetPanel.querySelector('#eroute').value.trim() || null) : null
+    }).eq('id', c.id);
+    if(error){ sheetPanel.querySelector('#emsg').innerHTML='<div class="err">'+esc(error.message)+'</div>'; btn.disabled=false; btn.textContent='حفظ'; return; }
+    await refresh(); closeSheet(); toast('تم الحفظ'); render();
+  };
+  sheetPanel.querySelector('#earchive').onclick = async () => {
+    const { error } = await sb.from('children').update({ active:false }).eq('id', c.id);
+    if(error){ toast('تعذّرت الأرشفة'); return; }
+    await refresh(); closeSheet(); toast('تمت أرشفة الطفل'); render();
+  };
+}
+
+/* ---------- classes ---------- */
+function adminClasses(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:12px"></div>');
+  const add = el('<button class="btn">إضافة فصل</button>');
+  add.onclick = () => classSheet(null);
+  wrap.appendChild(add);
+
+  const list = el('<div class="rowlist"></div>');
+  S.classes.forEach(c => {
+    const n = S.children.filter(k=>k.class_id===c.id).length;
+    const b = el(`<button class="row">
+      <span class="nm"><b>فصل ${esc(c.name)}</b><span>${n} طفل</span></span>
+      <span class="tagx">تعديل</span>
+    </button>`);
+    b.onclick = () => classSheet(c);
+    list.appendChild(b);
+  });
+  if(!S.classes.length) list.appendChild(el('<div class="empty">لا توجد فصول بعد.</div>'));
+  wrap.appendChild(list);
+
+  if(S.classes.length && !S.preview) wrap.appendChild(classDangerZone());
+  return wrap;
+}
+
+/* ---------- danger zone: remove every class ---------- */
+function classDangerZone(){
+  const n = S.classes.length;
+  const assigned = S.children.filter(k => k.class_id).length;
+  const card = el(`<div class="card danger">
+    <h3>حذف جميع الفصول</h3>
+    <p class="help">يحذف <b>${n}</b> ${n===1?'فصلًا':'فصول'} مع إعلانات كل فصل وارتباط المعلمات به.
+    ${assigned ? `<b>${kidsWord(assigned)}</b> سيبقون في السجل بدون فصل.` : 'لا يوجد أطفال مرتبطون بها حاليًا.'}
+    عند استيراد قائمة الأطفال تُنشأ الفصول تلقائيًا من عمود الفصل. لا يمكن التراجع.</p>
+    <button class="btn soft sm" id="wipec" style="color:var(--pink)">حذف جميع الفصول…</button>
+  </div>`);
+  card.querySelector('#wipec').onclick = wipeClassesSheet;
+  return card;
+}
+
+function wipeClassesSheet(){
+  const n = S.classes.length;
+  const assigned = S.children.filter(k => k.class_id).length;
+  openSheet(`
+    <h3>حذف جميع الفصول</h3>
+    <p class="help">سيُحذف <b>${n}</b> ${n===1?'فصلًا':'فصول'} من ${esc(brandName())}،
+    ومعها إعلانات الفصول وارتباط المعلمات بها.
+    ${assigned ? `<b>${kidsWord(assigned)}</b> سيبقون في السجل لكن بدون فصل.` : ''}</p>
+    <p class="help">للتأكيد، اكتب <b>DELETE</b> في الحقل التالي.</p>
+    <div class="field"><input id="wcc" class="confirmbox" placeholder="DELETE" autocapitalize="characters" autocomplete="off"></div>
+    <div id="wcmsg"></div>
+    <button class="btn" id="wcgo" style="background:var(--pink)" disabled>حذف جميع الفصول نهائيًا</button>
+    <button class="btn soft sm" id="wcx">تراجع</button>
+  `);
+  const inp = sheetPanel.querySelector('#wcc');
+  const go  = sheetPanel.querySelector('#wcgo');
+  sheetPanel.querySelector('#wcx').onclick = closeSheet;
+  inp.oninput = () => { go.disabled = inp.value.trim().toUpperCase() !== 'DELETE'; };
+  go.onclick = async () => {
+    go.disabled = true; go.textContent = 'جارٍ الحذف…';
+    const r = await safe(sb.rpc('admin_delete_all_classes', { p_confirm: 'DELETE' }));
+    if(!r){
+      sheetPanel.querySelector('#wcmsg').innerHTML =
+        '<div class="err">تعذّر الحذف — تأكد من صلاحيتك ومن تشغيل تحديث قاعدة البيانات.</div>';
+      go.disabled = false; go.textContent = 'حذف جميع الفصول نهائيًا'; return;
+    }
+    closeSheet();
+    await loadCore();
+    toast('تم حذف ' + (r.data ?? n) + ' فصل');
+    render();
+  };
+}
+
+function classSheet(c){
+  openSheet(`
+    <h3>${c?'تعديل الفصل':'فصل جديد'}</h3>
+    <div class="field"><label for="kn">اسم الفصل</label><input id="kn" value="${c?esc(c.name):''}" placeholder="مثال: الفراشات"></div>
+    <div id="kmsg"></div>
+    <button class="btn" id="ksave">حفظ</button>
+    <button class="btn soft sm" id="kcancel">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#kcancel').onclick = closeSheet;
+  sheetPanel.querySelector('#ksave').onclick = async () => {
+    const name = sheetPanel.querySelector('#kn').value.trim();
+    if(!name){ sheetPanel.querySelector('#kmsg').innerHTML='<div class="err">اكتب الاسم.</div>'; return; }
+    const btn = sheetPanel.querySelector('#ksave'); btn.disabled = true;
+    const q = c ? sb.from('classes').update({ name }).eq('id', c.id)
+                : sb.from('classes').insert({ name, kindergarten_id: S.kg.id });
+    const { error } = await q;
+    if(error){ sheetPanel.querySelector('#kmsg').innerHTML='<div class="err">'+esc(error.message)+'</div>'; btn.disabled=false; return; }
+    const { data } = await sb.from('classes').select('*').eq('kindergarten_id', S.kg.id).order('name');
+    S.classes = data || [];
+    closeSheet(); toast('تم الحفظ'); render();
+  };
+}
+
+/* ---------- staff ---------- */
+function adminStaff(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:12px"></div>');
+  const add = el('<button class="btn">إنشاء رمز دخول</button>');
+  add.onclick = () => {
+    openSheet(`
+      <h3>رمز دخول جديد</h3>
+      <p class="help">اختاري الصلاحية. الرمز يُستخدم مرة واحدة.</p>
+      <div class="field"><label for="ir">الصلاحية</label>
+        <select id="ir">
+          <option value="teacher">معلمة — ترى فصلها فقط</option>
+          <option value="bus">مرافقة الحافلة — ترى أطفال الحافلة فقط</option>
+          <option value="admin">مديرة — ترى الإدارة كاملة</option>
+        </select></div>
+      <div id="irmsg"></div>
+      <button class="btn" id="irgo">إنشاء</button>
+      <button class="btn soft sm" id="irx">إلغاء</button>
+    `);
+    sheetPanel.querySelector('#irx').onclick = closeSheet;
+    sheetPanel.querySelector('#irgo').onclick = async (e) => {
+      const role = sheetPanel.querySelector('#ir').value;
+      e.target.disabled = true; e.target.textContent = 'جارٍ الإنشاء…';
+      const label = role === 'admin' ? 'مديرة الروضة' : role === 'bus' ? 'مرافقة الحافلة' : 'معلمة';
+      // the code is generated server-side (cryptographic random + 30-day expiry)
+      const r = await safe(sb.rpc('create_invite', {
+        p_role: role, p_child: null, p_label: label, p_max: 1, p_days: 30
+      }));
+      if(!r || r.error || !r.data){
+        sheetPanel.querySelector('#irmsg').innerHTML = '<div class="err">تعذّر الإنشاء.</div>';
+        e.target.disabled = false; e.target.textContent = 'إنشاء'; return;
+      }
+      const row = r.data;
+      await loadInvites();
+      openSheet(`<h3>رمز ${esc(label)}</h3>
+        <p class="help">أعطي هذا الرمز لصاحبته لتسجّل حسابها. يُستخدم مرة واحدة، وتنتهي صلاحيته بعد ٣٠ يومًا.</p>
+        <div class="codebox"><b>${esc(row.code)}</b><button id="sp">نسخ</button></div>
+        <button class="btn" id="sd">تم</button>`);
+      sheetPanel.querySelector('#sp').onclick = (ev)=>copyText(row.code, ev.target);
+      sheetPanel.querySelector('#sd').onclick = ()=>{ closeSheet(); render(); };
+    };
+  };
+  wrap.appendChild(add);
+
+  const list = el('<div class="rowlist"></div>');
+  S.staff.forEach(p => {
+    const r = el(`<button class="row">
+      <span class="face">${esc(initial(p.full_name))}</span>
+      <span class="nm"><b>${esc(p.full_name||'—')}</b><span>${esc(p.phone||'')}</span></span>
+      <span class="tagx ${p.role==='admin'?'full':''}">${ROLE_AR[p.role]||'معلمة'}</span>
+    </button>`);
+    r.onclick = () => staffSheet(p);
+    list.appendChild(r);
+  });
+  if(!S.staff.length) list.appendChild(el('<div class="empty">لا توجد حسابات بعد.</div>'));
+  wrap.appendChild(list);
+
+  const unused = S.invites.filter(i => i.role !== 'parent' && (i.uses||0) < (i.max_uses||1));
+  if(unused.length){
+    const card = el('<div class="card"><h3>رموز غير مستخدمة</h3><div class="rowlist"></div></div>');
+    const lx = card.querySelector('.rowlist');
+    const roleLabel = { admin:'مديرة', teacher:'معلمة', bus:'مرافقة الحافلة' };
+    unused.forEach(i => {
+      const r = el(`<div class="codebox" style="margin-bottom:6px">
+        <span style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0">
+          <b>${esc(i.code)}</b>
+          <span class="used">${esc(roleLabel[i.role] || i.role)}</span>
+        </span>
+        <button>نسخ</button></div>`);
+      r.querySelector('button').onclick = (e)=>copyText(i.code, e.target);
+      lx.appendChild(r);
+    });
+    wrap.appendChild(card);
+  }
+  return wrap;
+}
+
+/* ================= platform owner console ================= */
+async function loadTenants(){
+  const r = await safe(sb.rpc('owner_kindergartens'));
+  S.tenants = (r && r.data) ? r.data : [];
+}
+
+function viewPlatform(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:14px"></div>');
+
+  // see the app the way each role sees it, without making an account for each
+  const pv = el(`<div class="card"><h3>معاينة الأدوار</h3>
+    <p class="help">افتح التطبيق بعين أي دور. البيانات حقيقية، لكن كل أزرار التسجيل معطّلة — لن تُرسل إشعارات ولن يتغيّر شيء.</p></div>`);
+  const grid = el('<div class="actions2" style="flex-wrap:wrap"></div>');
+  [['teacher','معلمة'],['bus','مرافقة الحافلة'],['parent','ولي أمر']].forEach(([r,l]) => {
+    const b = el(`<button class="btn soft sm" style="flex:1 1 30%">${esc(l)}</button>`);
+    b.onclick = async () => {
+      if(r === 'parent' && !S.children.length){ toast('أضف طفلًا أولًا لمعاينة شاشة ولي الأمر'); return; }
+      if(r === 'bus' && !S.children.some(c => c.rides_bus)){ toast('علّم طفلًا واحدًا على الأقل بأنه يركب الحافلة'); return; }
+      await setPreview(r);
+    };
+    grid.appendChild(b);
+  });
+  pv.appendChild(grid);
+  wrap.appendChild(pv);
+
+  const add = el('<button class="btn">إضافة روضة جديدة</button>');
+  add.onclick = newTenantSheet;
+  wrap.appendChild(add);
+
+  const list = el('<div class="rowlist"></div>');
+  if(!S.tenants.length) list.appendChild(el('<div class="empty">لا توجد روضات بعد.</div>'));
+  S.tenants.forEach(t => {
+    const b = el(`<button class="row">
+      <img src="${esc(t.logo_url||'logo.png')}" alt="" style="width:38px;height:38px;border-radius:12px;object-fit:contain;background:#fff;flex:none">
+      <span class="nm"><b>${esc(t.name)}</b><span>${esc(t.slug||'—')}.answer.sa · ${t.children} طفل · ${t.parents} ولي أمر</span></span>
+      <span class="tagx">الهوية</span>
+    </button>`);
+    b.onclick = () => tenantSheet(t);
+    list.appendChild(b);
+  });
+  wrap.appendChild(list);
+
+  wrap.appendChild(el(`<div class="card"><h3>كيف تُضاف روضة جديدة</h3>
+    <p class="help">١. أضف الروضة هنا واختر نطاقها الفرعي.<br>
+    ٢. أضف سجل CNAME في Cloudflare يشير إلى noolanl.github.io.<br>
+    ٣. أعطِ المديرة رمز الدخول — تدخل وتبني فصولها وأطفالها بنفسها.<br>
+    التطبيق واحد للجميع؛ الهوية تتغيّر حسب النطاق.</p></div>`));
+  return wrap;
+}
+
+function newTenantSheet(){
+  openSheet(`
+    <h3>روضة جديدة</h3>
+    <div class="field"><label for="tn">اسم الروضة</label><input id="tn" placeholder="روضة ..."></div>
+    <div class="field"><label for="ts">النطاق الفرعي</label><input id="ts" placeholder="mubdioon" style="direction:ltr;text-align:left">
+      <p class="help">حروف إنجليزية صغيرة فقط. سيصبح الرابط: <span dir="ltr">اسم.answer.sa</span></p></div>
+    <div class="field"><label for="tt">الوصف</label><input id="tt" value="تطبيق التواصل بين الروضة وأولياء الأمور"></div>
+    <div id="tmsg"></div>
+    <button class="btn" id="tsave">إنشاء</button>
+    <button class="btn soft sm" id="tx">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#tx').onclick = closeSheet;
+  sheetPanel.querySelector('#tsave').onclick = async (e) => {
+    const name = sheetPanel.querySelector('#tn').value.trim();
+    const slug = sheetPanel.querySelector('#ts').value.trim().toLowerCase();
+    if(!name || !/^[a-z0-9-]{2,30}$/.test(slug)){
+      sheetPanel.querySelector('#tmsg').innerHTML = '<div class="err">اكتب الاسم ونطاقًا صحيحًا بالحروف الإنجليزية.</div>'; return;
+    }
+    e.target.disabled = true; e.target.textContent = 'جارٍ الإنشاء…';
+    const r = await safe(sb.rpc('owner_create_kindergarten', {
+      p_name: name, p_slug: slug, p_tagline: sheetPanel.querySelector('#tt').value.trim() || null
+    }));
+    if(!r || !r.data){
+      sheetPanel.querySelector('#tmsg').innerHTML = '<div class="err">تعذّر الإنشاء — قد يكون النطاق مستخدمًا.</div>';
+      e.target.disabled = false; e.target.textContent = 'إنشاء'; return;
+    }
+    const row = Array.isArray(r.data) ? r.data[0] : r.data;
+    await loadTenants();
+    openSheet(`<h3>تم إنشاء ${esc(name)}</h3>
+      <p class="help">أعطِ هذا الرمز لمديرة الروضة لتسجّل حسابها.</p>
+      <div class="codebox"><b>${esc(row.code)}</b><button id="tc">نسخ</button></div>
+      <p class="help">ثم أضف سجل CNAME في Cloudflare: <span dir="ltr">${esc(slug)}</span> ← <span dir="ltr">noolanl.github.io</span></p>
+      <button class="btn" id="td">تم</button>`);
+    sheetPanel.querySelector('#tc').onclick = (ev)=>copyText(row.code, ev.target);
+    sheetPanel.querySelector('#td').onclick = ()=>{ closeSheet(); render(); };
+  };
+}
+
+function tenantSheet(t){
+  const th = t.theme || {};
+  openSheet(`
+    <h3>هوية ${esc(t.name)}</h3>
+    <div class="field"><label for="bn">اسم الروضة</label><input id="bn" value="${esc(t.name||'')}"></div>
+    <div class="field"><label for="bt">الوصف</label><input id="bt" value="${esc(t.tagline||'')}"></div>
+    <div class="field"><label for="bs">النطاق الفرعي</label><input id="bs" value="${esc(t.slug||'')}" style="direction:ltr;text-align:left"></div>
+    <div class="field"><label for="bl">الشعار</label><input id="bl" type="file" accept="image/png,image/jpeg,image/svg+xml">
+      <p class="help">مربّع الشكل، ٥١٢×٥١٢ أو أكبر.</p></div>
+    <div class="actions2">
+      <div class="field" style="flex:1"><label for="cp">اللون الأساسي</label><input id="cp" type="color" value="${th.pink||'#E0206E'}"></div>
+      <div class="field" style="flex:1"><label for="cb">الثانوي</label><input id="cb" type="color" value="${th.blue||'#24A7E1'}"></div>
+    </div>
+    <div class="actions2">
+      <div class="field" style="flex:1"><label for="cg">لون الحضور</label><input id="cg" type="color" value="${th.green||'#7FB227'}"></div>
+      <div class="field" style="flex:1"><label for="cy">لون المغادرة</label><input id="cy" type="color" value="${th.yellow||'#EFB513'}"></div>
+    </div>
+    <div id="bmsg"></div>
+    <button class="btn" id="bsave">حفظ</button>
+    <button class="btn soft sm" id="bx">إغلاق</button>
+  `);
+  sheetPanel.querySelector('#bx').onclick = closeSheet;
+  sheetPanel.querySelector('#bsave').onclick = async (e) => {
+    const btn = e.target; btn.disabled = true; btn.textContent = 'جارٍ الحفظ…';
+    const msg = sheetPanel.querySelector('#bmsg');
+    try{
+      let logo_url = null;
+      const f = sheetPanel.querySelector('#bl').files[0];
+      if(f){
+        const path = `${t.id}/logo-${Date.now()}-${f.name.replace(/[^\w.\-]/g,'_')}`;
+        const up = await sb.storage.from('branding').upload(path, f, { upsert:true });
+        if(up.error) throw up.error;
+        logo_url = `${SUPABASE_URL}/storage/v1/object/public/branding/${path}`;
+      }
+      const r = await safe(sb.rpc('owner_update_brand', {
+        p_id: t.id,
+        p_name: sheetPanel.querySelector('#bn').value.trim(),
+        p_tagline: sheetPanel.querySelector('#bt').value.trim(),
+        p_logo: logo_url,
+        p_theme: {
+          pink: sheetPanel.querySelector('#cp').value, blue: sheetPanel.querySelector('#cb').value,
+          green: sheetPanel.querySelector('#cg').value, yellow: sheetPanel.querySelector('#cy').value
+        },
+        p_slug: sheetPanel.querySelector('#bs').value.trim().toLowerCase()
+      }));
+      if(!r) throw new Error('تعذّر الحفظ');
+      await loadTenants();
+      if(S.kg && S.kg.id === t.id){ await loadBrand(); }
+      msg.innerHTML = '<div class="ok">تم الحفظ.</div>';
+      render();
+    }catch(err){
+      msg.innerHTML = '<div class="err">' + esc(err.message || String(err)) + '</div>';
+    }
+    btn.disabled = false; btn.textContent = 'حفظ';
+  };
+}
+
+function monthStart(){ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString('en-CA'); }
+
+function adminReports(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:14px"></div>');
+  const card = el(`<div class="card">
+    <h3>تقرير الحضور</h3>
+    <div class="actions2">
+      <div class="field" style="flex:1"><label for="rf">من</label><input id="rf" type="date" value="${monthStart()}"></div>
+      <div class="field" style="flex:1"><label for="rt">إلى</label><input id="rt" type="date" value="${today()}"></div>
+    </div>
+    <button class="btn sm" id="rrun">عرض التقرير</button>
+    <div id="rout"></div>
+  </div>`);
+  const out = card.querySelector('#rout');
+
+  const paint = (rows, from, to) => {
+    if(!rows || !rows.length){ out.innerHTML = '<div class="empty">لا توجد بيانات في هذه الفترة.</div>'; return; }
+    out.innerHTML = '';
+    out.appendChild(el(`<div class="tblwrap"><table class="tbl">
+      <thead><tr><th>الطفل</th><th>الفصل</th><th>أيام الحضور</th><th>غياب مُبلّغ</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td>${esc(r.full_name)}</td><td>${esc(r.class_name||'—')}</td>
+        <td class="num">${r.present}</td><td class="num">${r.absent_reported}</td></tr>`).join('')}</tbody>
+    </table></div>`));
+    const dl = el('<button class="btn soft sm">تنزيل CSV</button>');
+    dl.onclick = () => {
+      const head = 'الطفل,الفصل,أيام الحضور,غياب مبلغ\n';
+      const body = rows.map(r=>[r.full_name, r.class_name||'', r.present, r.absent_reported].join(',')).join('\n');
+      const blob = new Blob(['\ufeff' + head + body], {type:'text/csv;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `attendance-${from}-to-${to}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+    out.appendChild(dl);
+  };
+
+  card.querySelector('#rrun').onclick = async (e) => {
+    const btn = e.target; btn.disabled = true; btn.textContent = 'جارٍ الحساب…';
+    const from = card.querySelector('#rf').value, to = card.querySelector('#rt').value;
+    const r = await safe(sb.rpc('attendance_report', { p_from: from, p_to: to }));
+    btn.disabled = false; btn.textContent = 'عرض التقرير';
+    if(!r){ out.innerHTML = '<div class="err">التقرير غير متاح بعد — شغّل تحديث قاعدة البيانات أولًا.</div>'; return; }
+    S.report = r.data || [];
+    paint(S.report, from, to);
+  };
+  wrap.appendChild(card);
+
+  // consent overview
+  const cs = el('<div class="card"><h3>موافقات أولياء الأمور</h3><div id="csout"><p class="help">جارٍ التحميل…</p></div></div>');
+  wrap.appendChild(cs);
+  safe(sb.rpc('consent_status')).then(r => {
+    const box = cs.querySelector('#csout'); if(!box) return;
+    if(!r){ box.innerHTML = '<p class="help">غير متاح بعد — شغّل تحديث قاعدة البيانات.</p>'; return; }
+    const rows = r.data || [];
+    const withG = rows.filter(x => x.guardians > 0);
+    const done = withG.filter(x => x.consented > 0).length;
+    const missing = withG.filter(x => x.consented === 0)
+      .map(x => (S.children.find(c=>c.id===x.child_id)||{}).full_name).filter(Boolean);
+    box.innerHTML = `<p class="help">${done} من ${withG.length} طفل لديهم موافقة مسجّلة.</p>` +
+      (missing.length ? '<p class="help">بدون موافقة: ' + esc(missing.slice(0,12).join('، ')) + '</p>' : '');
+  });
+
+  // full data export — the kindergarten owns its own records
+  const ex = el(`<div class="card"><h3>تصدير بيانات الروضة</h3>
+    <p class="help">ملف واحد يحتوي الأطفال والفصول وأولياء الأمور والحضور والغياب والأنشطة. الصور نفسها تبقى في التطبيق.</p>
+    <div id="exout"></div>
+    <button class="btn soft sm" id="exgo">تصدير الآن</button></div>`);
+  ex.querySelector('#exgo').onclick = async (e) => {
+    const b = e.target; b.disabled = true; b.textContent = 'جارٍ التصدير…';
+    const r = await safe(sb.rpc('export_kindergarten'));
+    if(!r || !r.data){
+      ex.querySelector('#exout').innerHTML = '<div class="err">غير متاح بعد — شغّل تحديث قاعدة البيانات.</div>';
+      b.disabled = false; b.textContent = 'تصدير الآن'; return;
+    }
+    const blob = new Blob([JSON.stringify(r.data, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `kindergarten-export-${today()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    ex.querySelector('#exout').innerHTML = '<div class="ok">تم تنزيل الملف.</div>';
+    b.disabled = false; b.textContent = 'تصدير الآن';
+  };
+  wrap.appendChild(ex);
+
+  // photo retention
+  const rt = el(`<div class="card"><h3>الاحتفاظ بالصور</h3>
+    <p class="help">تُحذف صور الأنشطة الأقدم من ${S.kg && S.kg.photo_retention_days ? S.kg.photo_retention_days : 365} يومًا.</p>
+    <div id="pgout"></div>
+    <button class="btn soft sm" id="purge">حذف الصور القديمة الآن</button></div>`);
+  rt.querySelector('#purge').onclick = async (e) => {
+    const b = e.target; b.disabled = true; b.textContent = 'جارٍ الحذف…';
+    const r = await safe(sb.rpc('purge_old_photos'));
+    rt.querySelector('#pgout').innerHTML = r
+      ? '<div class="ok">تم حذف ' + (r.data ?? 0) + ' صورة.</div>'
+      : '<div class="err">غير متاح بعد — شغّل تحديث قاعدة البيانات.</div>';
+    b.disabled = false; b.textContent = 'حذف الصور القديمة الآن';
+  };
+  wrap.appendChild(rt);
+  return wrap;
+}
+
+function staffSheet(p){
+  const self = S.profile && p.id === S.profile.id;
+  openSheet(`
+    <h3>${esc(p.full_name || '—')}</h3>
+    <p class="help">${esc(p.phone || '')} · ${ROLE_AR[p.role]||'معلمة'}</p>
+    <div id="smsg"></div>
+    <button class="btn soft" id="spw">إعادة تعيين كلمة المرور</button>
+    ${self || p.role==='admin' ? '' : '<button class="btn soft" id="sdel" style="color:var(--pink)">حذف الحساب نهائيًا</button>'}
+    <button class="btn soft sm" id="sx">إغلاق</button>
+  `);
+  sheetPanel.querySelector('#sx').onclick = closeSheet;
+  sheetPanel.querySelector('#spw').onclick = () => resetPasswordFor(p.id, p.full_name);
+  const del = sheetPanel.querySelector('#sdel');
+  if(del) del.onclick = () => confirmAction(
+    'حذف الحساب',
+    `سيُحذف حساب ${esc(p.full_name||'')} نهائيًا. الحضور الذي سجّلته والأنشطة التي نشرتها تبقى كما هي.`,
+    'حذف نهائيًا',
+    async () => {
+      const r = await safe(sb.rpc('admin_delete_account', { p_profile: p.id }));
+      if(!r) return 'تعذّر الحذف — تأكد من تشغيل تحديث قاعدة البيانات.';
+      await loadStaff(); toast('تم حذف الحساب'); render();
+    });
+}
+
+async function loadStaff(){
+  const { data } = await sb.rpc('kg_staff');
+  S.staff = data || [];
+}
+
+async function loadInvites(){
+  const { data } = await sb.from('invites').select('*').order('code').limit(400);
+  S.invites = data || [];
+}
+
+function resetPasswordFor(profileId, name){
+  openSheet(`<h3>كلمة مرور مؤقتة</h3>
+    <p class="help">${esc(name || '')} — سيتم إبطال كلمة المرور الحالية فورًا.</p>
+    <div id="rpout"></div>
+    <button class="btn" id="rpgo">إصدار كلمة مرور مؤقتة</button>
+    <button class="btn soft sm" id="rpx">إلغاء</button>`);
+  sheetPanel.querySelector('#rpx').onclick = closeSheet;
+  sheetPanel.querySelector('#rpgo').onclick = async (e) => {
+    e.target.disabled = true; e.target.textContent = 'جارٍ الإصدار…';
+    const r = await safe(sb.rpc('admin_reset_password', { p_profile: profileId }));
+    if(!r || !r.data){
+      sheetPanel.querySelector('#rpout').innerHTML = '<div class="err">تعذّر الإصدار — تأكد من تشغيل تحديث قاعدة البيانات.</div>';
+      e.target.disabled = false; e.target.textContent = 'إصدار كلمة مرور مؤقتة'; return;
+    }
+    sheetPanel.querySelector('#rpout').innerHTML =
+      '<p class="help">أرسل هذه الكلمة لولي الأمر، واطلب منه تغييرها من الإعدادات بعد الدخول.</p>' +
+      '<div class="codebox"><b id="rpv">' + esc(r.data) + '</b><button id="rpc">نسخ</button></div>';
+    sheetPanel.querySelector('#rpc').onclick = (ev)=>copyText(r.data, ev.target);
+    e.target.remove();
+    await safe(loadResets());
+    render();
+  };
+}
+
+function guardianSheet(child, g){
+  openSheet(`
+    <h3>${esc(g.full_name || 'ولي أمر')}</h3>
+    <p class="help">${esc(g.phone || '')} · ${esc(child.full_name)}</p>
+    <div id="gmsg"></div>
+    <button class="btn soft" id="gpw">إعادة تعيين كلمة المرور</button>
+    <button class="btn soft" id="gunlink">فصل عن ${esc(first(child.full_name))}</button>
+    <button class="btn soft" id="gdel" style="color:var(--pink)">حذف الحساب نهائيًا</button>
+    <button class="btn soft sm" id="gx">إغلاق</button>
+  `);
+  sheetPanel.querySelector('#gx').onclick = closeSheet;
+  sheetPanel.querySelector('#gpw').onclick = () => resetPasswordFor(g.id, g.full_name);
+
+  sheetPanel.querySelector('#gunlink').onclick = () => confirmAction(
+    'فصل ولي الأمر',
+    `سيتوقف ${esc(g.full_name||'')} عن رؤية ${esc(child.full_name)} وعن استقبال إشعاراته. يبقى حسابه موجودًا، ويُفتح مقعد في رمز الطفل.`,
+    'فصل',
+    async () => {
+      const r = await safe(sb.rpc('admin_unlink_guardian', { p_child: child.id, p_profile: g.id }));
+      if(!r) return 'تعذّر الفصل — تأكد من تشغيل تحديث قاعدة البيانات.';
+      await refresh(); await loadInvites();
+      toast('تم فصل ولي الأمر'); render();
+    });
+
+  sheetPanel.querySelector('#gdel').onclick = () => confirmAction(
+    'حذف الحساب',
+    `سيُحذف حساب ${esc(g.full_name||'')} نهائيًا ولا يمكن التراجع. سجلات الحضور والأنشطة تبقى كما هي.`,
+    'حذف نهائيًا',
+    async () => {
+      const r = await safe(sb.rpc('admin_delete_account', { p_profile: g.id }));
+      if(!r) return 'تعذّر الحذف — تأكد من تشغيل تحديث قاعدة البيانات.';
+      await refresh(); await loadInvites();
+      toast('تم حذف الحساب'); render();
+    });
+}
+
+// a destructive action always needs a second, deliberate tap
+function confirmAction(title, body, label, run){
+  openSheet(`
+    <h3>${title}</h3>
+    <p class="help">${body}</p>
+    <div id="cfmsg"></div>
+    <button class="btn" id="cfgo" style="background:var(--pink)">${esc(label)}</button>
+    <button class="btn soft sm" id="cfx">تراجع</button>
+  `);
+  sheetPanel.querySelector('#cfx').onclick = closeSheet;
+  sheetPanel.querySelector('#cfgo').onclick = async (e) => {
+    e.target.disabled = true; e.target.textContent = 'جارٍ التنفيذ…';
+    const err = await run();
+    if(err){
+      sheetPanel.querySelector('#cfmsg').innerHTML = '<div class="err">' + esc(err) + '</div>';
+      e.target.disabled = false; e.target.textContent = label; return;
+    }
+    closeSheet();
+  };
+}
+
+async function loadResets(){
+  const r = await safe(sb.rpc('open_resets'));
+  S.resets = (r && r.data) ? r.data : [];
+}
+
+/* ================= settings ================= */
+function viewSettings(){
+  const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+  const parent = actingRole() === 'parent';
+  const busOnly = actingRole() === 'bus';
+
+  // --- notifications ---
+  const card = el(`<div class="card"><h3>الإشعارات</h3></div>`);
+  const rows = [
+    ['attendance', 'الوصول والمغادرة', parent ? 'تنبيه فور تسجيل دخول أو خروج طفلك.' : 'تنبيه عند تسجيل الحضور.'],
+    ['announcements', 'إعلانات الإدارة', 'الرحلات، الإجازات، التذكيرات.'],
+  ];
+  if(!parent) rows.push(['absence', 'بلاغات الغياب', 'عندما يُبلّغ ولي أمر عن غياب طفله.']);
+
+  rows.forEach(([key, title, desc]) => {
+    const r = el(`<div class="switchrow"><div class="t"><b>${title}</b><span>${desc}</span></div>
+      <button class="sw" role="switch" aria-checked="${!!S.notif[key]}"></button></div>`);
+    r.querySelector('.sw').onclick = async (e) => {
+      S.notif[key] = !S.notif[key];
+      e.target.setAttribute('aria-checked', String(!!S.notif[key]));
+      await safe(sb.rpc('set_notif', { p: S.notif }));
+    };
+    card.appendChild(r);
+    card.appendChild(el('<div class="divider"></div>'));
+  });
+
+  const act = el(`<div class="field"><label for="ac">الأنشطة والصور</label>
+    <select id="ac">
+      <option value="instant" ${S.notif.activities==='instant'?'selected':''}>تنبيه فوري لكل نشاط</option>
+      <option value="daily" ${S.notif.activities==='daily'?'selected':''}>ملخّص واحد الساعة ٦ مساءً</option>
+      <option value="off" ${S.notif.activities==='off'?'selected':''}>بدون تنبيه</option>
+    </select></div>`);
+  act.querySelector('#ac').onchange = async (e) => {
+    S.notif.activities = e.target.value;
+    await safe(sb.rpc('set_notif', { p: S.notif }));
+    toast('تم الحفظ');
+  };
+  card.appendChild(act);
+
+  const quiet = el(`<div class="switchrow"><div class="t"><b>ساعات الهدوء</b><span>لا تصل تنبيهات الأنشطة والإعلانات بين ٩ مساءً و٦ صباحًا.</span></div>
+    <button class="sw" role="switch" aria-checked="${!!S.notif.quiet}"></button></div>`);
+  quiet.querySelector('.sw').onclick = async (e) => {
+    S.notif.quiet = !S.notif.quiet;
+    e.target.setAttribute('aria-checked', String(!!S.notif.quiet));
+    await safe(sb.rpc('set_notif', { p: S.notif }));
+  };
+  card.appendChild(quiet);
+  if(!busOnly) wrap.appendChild(card);
+
+  if(busOnly){
+    wrap.appendChild(el(`<div class="card"><h3>مرافقة الحافلة</h3>
+      <p class="help">تظهر لك أطفال الحافلة فقط. أول ضغطة تسجّل ركوب الطفل، والثانية تسجّل وصوله، والثالثة تلغي التسجيل إذا ضغطتِ على الطفل الخطأ.</p>
+      <p class="help">ولي الأمر يصله إشعار فوري عند كل ضغطة.</p></div>`));
+  }
+
+  // --- device ---
+  if(!busOnly){
+    const dev = el('<div class="card"><h3>هذا الجهاز</h3></div>');
+    const b = pushBanner();
+    if(b) dev.appendChild(b);
+    else dev.appendChild(el('<p class="help">الإشعارات مفعّلة على هذا الجهاز ✅</p>'));
+    wrap.appendChild(dev);
+  }
+
+  // --- privacy (parents) ---
+  if(parent){
+    const pv = el(`<div class="card"><h3>الخصوصية والموافقة</h3></div>`);
+
+    if(!S.consentGiven){
+      pv.appendChild(el(`<p class="help">لم تُسجَّل موافقتك بعد. الموافقة الأساسية لازمة لعرض بيانات طفلك.</p>`));
+      const cb = el('<button class="btn sm">تسجيل الموافقة</button>');
+      cb.onclick = async () => {
+        const r = await safe(sb.rpc('set_consent', { p_photo: true, p_version: POLICY_VERSION }));
+        if(!r){ toast('تعذّر الحفظ'); return; }
+        S.consentGiven = true; S.photoConsent = true; toast('تم تسجيل الموافقة'); render();
+      };
+      pv.appendChild(cb);
+    } else {
+      pv.appendChild(el(`<div class="switchrow"><div class="t"><b>البيانات الأساسية</b>
+        <span>الاسم، الفصل، الحضور والغياب، رحلات الحافلة. لازمة لتشغيل الخدمة.</span></div>
+        <span class="tagx free">مُفعّلة</span></div>`));
+
+      const ph = el(`<div class="switchrow"><div class="t"><b>نشر صور طفلي</b>
+        <span>اختياري. إيقافه لا يُخرجك من التطبيق — يستمر كل شيء عدا الصور.</span></div>
+        <button class="sw" role="switch" aria-checked="${!!S.photoConsent}"></button></div>`);
+      ph.querySelector('.sw').onclick = async (e) => {
+        const want = !S.photoConsent;
+        const r = await safe(sb.rpc('set_photo_consent', { p_ok: want }));
+        if(!r){ toast('تعذّر الحفظ'); return; }
+        S.photoConsent = want;
+        e.target.setAttribute('aria-checked', String(want));
+        toast(want ? 'تم السماح بنشر الصور' : 'تم إيقاف نشر الصور. أبلغ الروضة لحذف الصور المنشورة سابقًا.');
+      };
+      pv.appendChild(ph);
+
+      const wd = el('<button class="btn soft sm">سحب الموافقة الأساسية وإغلاق الحساب</button>');
+      wd.onclick = () => openSheet(`
+        <h3>سحب الموافقة الأساسية</h3>
+        <p class="help">الموافقة الأساسية هي أساس عرض بيانات طفلك في التطبيق، لذلك سحبها يعني إغلاق حسابك وتوقّف الإشعارات.
+        بيانات الحضور التي تحتفظ بها الروضة كسجلّ رسمي تبقى لديها.</p>
+        <p class="help">إن كان ما يزعجك هو الصور فقط، أوقف «نشر صور طفلي» بالأعلى — الخدمة تستمر كما هي.</p>
+        <p class="help">لإغلاق الحساب تواصل مع إدارة الروضة، أو راسلنا على <b>support@answer.sa</b>.</p>
+        <button class="btn soft sm" id="cw">إغلاق</button>`) || (sheetPanel.querySelector('#cw').onclick = closeSheet);
+      pv.appendChild(wd);
+    }
+
+    pv.appendChild(el(`<p class="help" style="margin-top:4px">
+      <a href="${POLICY_URL}" target="_blank" rel="noopener">اقرأ سياسة الخصوصية كاملة</a></p>`));
+    wrap.appendChild(pv);
+  }
+
+  // --- password ---
+  const pw = el(`<div class="card"><h3>كلمة المرور</h3>
+    <div class="field"><label for="np">كلمة مرور جديدة</label><input id="np" type="password" minlength="6" placeholder="٦ أحرف على الأقل"></div>
+    <div id="pwmsg"></div>
+    <button class="btn soft sm" id="pwsave">تغيير كلمة المرور</button></div>`);
+  pw.querySelector('#pwsave').onclick = async () => {
+    const v = pw.querySelector('#np').value;
+    if(!v || v.length < 6){ pw.querySelector('#pwmsg').innerHTML = '<div class="err">٦ أحرف على الأقل.</div>'; return; }
+    const { error } = await sb.auth.updateUser({ password: v });
+    pw.querySelector('#pwmsg').innerHTML = error
+      ? '<div class="err">'+esc(error.message)+'</div>'
+      : '<div class="ok">تم تغيير كلمة المرور.</div>';
+    if(!error) pw.querySelector('#np').value = '';
+  };
+  wrap.appendChild(pw);
+
+  const out = el('<button class="btn soft">تسجيل الخروج</button>');
+  out.onclick = async()=>{ if(S.channel) sb.removeChannel(S.channel); await sb.auth.signOut(); location.reload(); };
+  wrap.appendChild(out);
+  return wrap;
+}
+
+/* ================= push ================= */
+const VAPID_PUBLIC = 'BNqCBI2yu25gyEKTWJ-7EumIBd7-ggybkflelEWHougONUbkkF1t6HJ2xpNCPTWMt9k6BgsXEaxSN4tGh3ic3U0';
+function b64ToBytes(b64){
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g,'+').replace(/_/g,'/'));
+  const out = new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+async function registerSW(){
+  if(!('serviceWorker' in navigator)) return null;
+  try { return await navigator.serviceWorker.register('sw.js'); } catch(e){ return null; }
+}
+async function saveSubscription(sub){
+  const j = sub.toJSON();
+  const { error } = await sb.from('push_subscriptions').upsert({
+    profile_id: S.profile.id, endpoint: j.endpoint,
+    p256dh: j.keys.p256dh, auth: j.keys.auth, user_agent: navigator.userAgent
+  }, { onConflict: 'endpoint' });
+  if(error) throw new Error('تعذّر حفظ الاشتراك.');
+  S.pushOn = true;
+}
+async function enablePush(){
+  if(!pushSupported) throw new Error('متصفحك لا يدعم الإشعارات.');
+  const reg = await registerSW();
+  if(!reg) throw new Error('تعذّر تشغيل خدمة الإشعارات.');
+  await navigator.serviceWorker.ready;
+  const perm = await Notification.requestPermission();
+  if(perm !== 'granted') throw new Error('لم يتم السماح بالإشعارات من إعدادات المتصفح.');
+  let sub = await reg.pushManager.getSubscription();
+  if(!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey: b64ToBytes(VAPID_PUBLIC) });
+  await saveSubscription(sub);
+}
+function notifyServer(payload){ sb.functions.invoke('notify', { body: payload }).catch(()=>{}); }
+
+function pushBanner(){
+  const iosHint = el(`<div class="notif info">
+    <div class="t"><b>فعّل الإشعارات</b><span>افتح قائمة المشاركة ⬆️ ثم «إضافة إلى الشاشة الرئيسية»، وشغّل التطبيق من هناك.</span></div>
+  </div>`);
+  if(!pushSupported) return (isIOS && !isStandalone) ? iosHint : null;
+  if(Notification.permission === 'granted' && S.pushOn) return null;
+  if(Notification.permission === 'denied'){
+    return el(`<div class="notif info"><div class="t"><b>الإشعارات موقوفة</b><span>فعّلها من إعدادات المتصفح لهذا الموقع.</span></div></div>`);
+  }
+  if(isIOS && !isStandalone) return iosHint;
+  const n = el(`<div class="notif">
+    <div class="t"><b>فعّل إشعارات الهاتف</b><span>ليصلك تنبيه فور وصول طفلك أو نشر نشاط.</span></div>
+    <button type="button">تفعيل</button>
+  </div>`);
+  n.querySelector('button').onclick = async (e) => {
+    e.target.disabled = true; e.target.textContent = '…';
+    try { await enablePush(); toast('تم تفعيل الإشعارات'); render(); }
+    catch(err){ toast(err.message); e.target.disabled=false; e.target.textContent='تفعيل'; }
+  };
+  return n;
+}
+
+async function checkPushState(){
+  if(!pushSupported || Notification.permission !== 'granted'){ S.pushOn = false; return; }
+  const reg = await registerSW();
+  if(!reg){ S.pushOn = false; return; }
+  const sub = await reg.pushManager.getSubscription();
+  if(!sub){ S.pushOn = false; return; }
+  try { await saveSubscription(sub); } catch(_){ S.pushOn = false; }
+}
+
+/* ================= shell ================= */
+function render(){
+  const role = actingRole();
+  const staff = role==='admin' || role==='teacher';
+  const isBus = role==='bus';
+  const tabs = (staff
+    ? [{k:'roster',l:'الفصل',i:'users'}, {k:'feed',l:'الأخبار',i:'home'}].concat(role==='admin'?[{k:'admin',l:'الإدارة',i:'chart'}]:[])
+    : isBus
+    ? [{k:'bus',l:'الحافلة',i:'car'}]
+    : [{k:'home',l:'طفلي',i:'home'}]
+  ).concat(S.isOwner && !S.preview ? [{k:'platform',l:'المنصة',i:'chart'}] : [])
+   .concat([{k:'settings',l:'الإعدادات',i:'gear'}]);
+  if(!S.tab || !tabs.find(t=>t.k===S.tab)) S.tab = tabs[0].k;
+
+  app.innerHTML = '';
+  const cls = S.classes.find(c=>c.id===S.activeClass);
+  const sub = staff && S.tab==='roster' && cls ? 'فصل '+cls.name+' · '+fmtDay(new Date())
+            : isBus && S.tab==='bus' ? BUS_TRIPS[S.busTrip] + ' · ' + fmtDay(new Date())
+            : fmtDay(new Date());
+
+  const top = el(`<div class="topbar">
+    <img class="logo" src="${esc(brandLogo())}" alt="">
+    <div class="who"><b>${esc(brandName())}</b><span>${esc(sub)}</span></div>
+    <button class="iconbtn" id="gotoSettings" aria-label="الإعدادات">${ICONS.gear}</button>
+  </div>`);
+  top.querySelector('#gotoSettings').onclick = ()=>{ S.tab='settings'; render(); };
+  app.appendChild(top);
+
+  const main = el('<main></main>');
+  if(S.preview){
+    const pv = el(`<div class="notif info">
+      <div class="t"><b>معاينة كـ ${esc(ROLE_AR[S.preview]||S.preview)}</b><span>هذا عرض تجريبي — البيانات حقيقية والأزرار معطّلة.</span></div>
+      <button type="button">خروج</button>
+    </div>`);
+    pv.querySelector('button').onclick = ()=>setPreview(null);
+    main.appendChild(pv);
+  }
+  if(S.tab !== 'settings' && !isBus && !S.preview){
+    const banner = pushBanner();
+    if(banner) main.appendChild(banner);
+  }
+  if(S.tab==='settings') main.appendChild(viewSettings());
+  else if(S.tab==='platform') main.appendChild(viewPlatform());
+  else if(S.tab==='roster') main.appendChild(viewRoster());
+  else if(S.tab==='bus') main.appendChild(viewBus());
+  else if(S.tab==='admin') main.appendChild(viewAdmin());
+  else if(S.tab==='feed') main.appendChild(buildFeed());
+  else main.appendChild(viewParent());
+  app.appendChild(main);
+
+  if(tabs.length>1){
+    const nav = el('<nav class="tabs"></nav>');
+    tabs.forEach(t=>{
+      const b = el(`<button ${S.tab===t.k?'aria-current="page"':''}>${ICONS[t.i]}<span>${t.l}</span></button>`);
+      b.onclick = async ()=>{ S.tab=t.k;
+        if(t.k==='admin'){ if(!S.invites.length) await loadInvites(); if(!S.staff.length) await loadStaff(); await loadResets(); }
+        if(t.k==='platform') await loadTenants();
+        render(); };
+      nav.appendChild(b);
+    });
+    app.appendChild(nav);
+  }
+}
+
+/* ================= boot ================= */
+async function boot(){
+  app.innerHTML = '<div class="spin"></div>';
+  if(!S.brand) await loadBrand();
+  const { data } = await sb.auth.getSession();
+  S.session = data.session;
+  if(!S.session){ renderAuth('in'); return; }
+  const ready = await loadCore();
+  if(!ready){ renderNeedsCode(); return; }
+  subscribe();
+  S.pending = new Set(queueGet().map(x => x.child_id));
+  await checkPushState();
+  render();
+  flushQueue();
+  setInterval(async()=>{ if(S.session && document.visibilityState==='visible'){ await flushQueue(); await refresh(); render(); } }, 60000);
+}
+document.addEventListener('visibilitychange', async ()=>{
+  if(document.visibilityState==='visible' && S.session && S.profile && S.kg){ await refresh(); render(); }
+});
+boot();
+</script>
+</body>
+</html>
