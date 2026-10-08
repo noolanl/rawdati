@@ -73,6 +73,20 @@ main{flex:1;padding:16px 16px 100px;display:flex;flex-direction:column;gap:16px}
   padding-bottom:calc(24px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))}
 .auth-logo{display:block;width:104px;margin:0 auto 2px;padding:14px;background:#fff;border-radius:28px;box-shadow:var(--shadow-sm)}
 .auth h1{font-size:27px;text-align:center}
+.trydemo{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:6px;padding-top:16px;border-top:1px solid var(--line)}
+.trydemo span{font-size:13px;color:var(--ink-2)}
+.trydemo .btn{width:100%}
+.demoroles{display:flex;flex-direction:column;gap:10px}
+.demorole{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:right;padding:14px 16px;border-radius:16px;
+  border:1.5px solid var(--line);background:var(--surface);cursor:pointer;font:inherit;color:var(--ink)}
+.demorole b{font-size:16px}
+.demorole span{font-size:12.5px;color:var(--ink-2)}
+.demorole:active{border-color:var(--pink)}
+.demobar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:calc(8px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 14px 8px;background:var(--yellow-soft);color:var(--yellow-ink);font-size:12.5px;font-weight:600}
+.demobar span{flex:1;min-width:150px}
+.demobar button{border:none;background:rgba(0,0,0,.06);color:inherit;font:inherit;font-weight:700;border-radius:999px;padding:5px 12px;cursor:pointer}
+body:has(.demobar) .topbar{position:relative;padding-top:12px !important}
 .auth .sub{margin:0;text-align:center;font-size:13.5px;color:var(--ink-2)}
 .segmented{display:flex;background:var(--sunken);border-radius:999px;padding:5px;gap:5px}
 .segmented button{
@@ -348,7 +362,248 @@ main{padding-bottom:max(100px, calc(84px + var(--safe-area-inset-bottom, env(saf
 <script>
 const SUPABASE_URL = 'https://gpfczbyehgsxwsdhnrvz.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_XJaRuA9SMay-IzQGxcJg-Q_ztALOvac';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// ===== Demo mode: try Kidora without an account =====
+// Everything runs in this browser tab on made-up data. Nothing reaches the
+// server, nothing is saved, and no notification is sent to anyone.
+const DEMO = (() => { try { return sessionStorage.getItem('kidora_demo'); } catch(_){ return null; } })();
+function startDemo(role){ try { sessionStorage.setItem('kidora_demo', role); } catch(_){} location.reload(); }
+function exitDemo(){
+  try { sessionStorage.removeItem('kidora_demo'); localStorage.removeItem('pendingTaps_demo'); } catch(_){}
+  location.reload();
+}
+
+function makeDemoClient(role){
+  const tz = 'Asia/Riyadh';
+  const day = (o=0) => new Date(Date.now() + o*864e5).toLocaleDateString('en-CA', { timeZone: tz });
+  const at = (h, m) => { const d = new Date(); d.setHours(h, m, 0, 0); return d.toISOString(); };
+  const ago = (min) => new Date(Date.now() - min*6e4).toISOString();
+  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(16).slice(2));
+  const KG = 'demo-kg', ME = 'demo-me';
+  const names = { parent:'ولي الأمر (تجربة)', teacher:'المعلمة (تجربة)', admin:'المديرة (تجربة)' };
+
+  // colourful placeholder "photos" so the feed looks real
+  const pic = (a, b, emoji) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/><text x="200" y="185" font-size="110" text-anchor="middle">${emoji}</text></svg>`);
+  const PICS = {
+    'demo/p1': pic('#FDE7F0','#E3F5FD','🎨'), 'demo/p2': pic('#FEF4D9','#EEF7DF','🧩'),
+    'demo/p3': pic('#E3F5FD','#EEF7DF','🌱'), 'demo/p4': pic('#EEF7DF','#FDE7F0','📚')
+  };
+
+  const T = {
+    profiles: [{ id:ME, kindergarten_id:KG, role, full_name:names[role]||names.parent, phone:'0500000000', notif:null }],
+    kindergartens: [{ id:KG, name:'روضة كيدورا التجريبية', city:'', slug:'demo', tagline:'وضع التجربة — لا يُرسل شيء لأحد',
+                      logo_url:'wanas-logo.png', theme:{}, photo_retention_days:365 }],
+    classes: [ { id:'c1', kindergarten_id:KG, name:'التمهيدي' }, { id:'c2', kindergarten_id:KG, name:'الروضة الأولى' } ],
+    children: [
+      ['k1','لمى أحمد','f','c1',true,'الحافلة ١'], ['k2','فيصل أحمد','m','c2',false,null],
+      ['k3','جود سعد','f','c1',true,'الحافلة ١'],  ['k4','عبدالله خالد','m','c1',false,null],
+      ['k5','ريم فهد','f','c1',false,null],       ['k6','سلطان ناصر','m','c1',false,null],
+      ['k7','نورة سالم','f','c2',false,null],     ['k8','يوسف ماجد','m','c2',true,'الحافلة ١'],
+      ['k9','دانة عمر','f','c2',false,null]
+    ].map(([id,full_name,gender,class_id,rides_bus,bus_route]) =>
+      ({ id, kindergarten_id:KG, full_name, gender, class_id, active:true, rides_bus, bus_route })),
+    attendance: [
+      { id:uid(), kindergarten_id:KG, child_id:'k1', day:day(), check_in_at:at(7,42), check_out_at:null },
+      { id:uid(), kindergarten_id:KG, child_id:'k3', day:day(), check_in_at:at(7,35), check_out_at:null },
+      { id:uid(), kindergarten_id:KG, child_id:'k4', day:day(), check_in_at:at(7,50), check_out_at:null },
+      { id:uid(), kindergarten_id:KG, child_id:'k7', day:day(), check_in_at:at(7,40), check_out_at:null },
+      { id:uid(), kindergarten_id:KG, child_id:'k8', day:day(), check_in_at:at(7,38), check_out_at:null }
+    ],
+    posts: [
+      { id:uid(), kindergarten_id:KG, class_id:'c1', author_id:'t', kind:'activity', body:'اليوم رسمنا الفصول الأربعة، وكل طفل لوّن فصله المفضّل 🎨', photo_paths:['demo/p1','demo/p2'], created_at:ago(95) },
+      { id:uid(), kindergarten_id:KG, class_id:null, author_id:'a', kind:'announcement', body:'تذكير: رحلة الحديقة يوم الخميس — نرجو إرسال قبعة وقارورة ماء.', photo_paths:[], created_at:ago(60*20) },
+      { id:uid(), kindergarten_id:KG, class_id:'c2', author_id:'t', kind:'activity', body:'زرعنا بذور الفاصوليا في أكواب صغيرة، وكل طفل كتب اسمه على كوبه 🌱', photo_paths:['demo/p3'], created_at:ago(60*26) }
+    ],
+    absences: [ { id:uid(), kindergarten_id:KG, child_id:'k5', day:day(), reason:'مرض', note:'حرارة خفيفة', created_by:'p', created_at:ago(150) } ],
+    pickups: [ { id:uid(), kindergarten_id:KG, child_id:'k3', day:day(), person_name:'خالها محمد', relation:'خال', phone:'', created_by:'p', created_at:ago(120) } ],
+    bus_logs: [ { id:uid(), kindergarten_id:KG, child_id:'k1', day:day(), trip:'am', boarded_at:at(7,5), arrived_at:at(7,40) },
+                { id:uid(), kindergarten_id:KG, child_id:'k3', day:day(), trip:'am', boarded_at:at(7,10), arrived_at:at(7,34) } ],
+    daily_updates: [ { child_id:'k1', day:day(), meal:'all', nap:'slept', mood:'happy', bathroom:null, note:'أكلت وجبتها كاملة وشاركت في الرسم بحماس.', photo_paths:['demo/p4'], updated_at:ago(30) } ],
+    invites: [], push_subscriptions: []
+  };
+  T.children.forEach(c => T.invites.push({ code:'P-DEMO' + c.id.slice(1).padStart(4,'0'), kindergarten_id:KG, role:'parent', child_id:c.id,
+    label:'ولي الأمر', max_uses:4, uses:c.id==='k1'||c.id==='k2'?1:0, used_by:null, created_at:ago(9000), expires_at:new Date(Date.now()+80*864e5).toISOString(), revoked:false }));
+  ['S-DEMO0001','S-DEMO0002'].forEach((code,i) => T.invites.push({ code, kindergarten_id:KG, role:'teacher', child_id:null, label:'معلمة',
+    max_uses:1, uses:0, created_at:ago(5000), expires_at:new Date(Date.now()+20*864e5).toISOString(), revoked:false }));
+  const MY_KIDS = ['k1','k2'];   // the demo parent has two children
+
+  // what each role may see (a light imitation of the server's rules)
+  const visible = (t, rows) => {
+    if(role !== 'parent') return rows;
+    const myClasses = T.children.filter(c => MY_KIDS.includes(c.id)).map(c => c.class_id);
+    if(['children'].includes(t)) return rows.filter(r => MY_KIDS.includes(r.id));
+    if(['attendance','absences','pickups','bus_logs'].includes(t)) return rows.filter(r => MY_KIDS.includes(r.child_id));
+    if(t === 'posts') return rows.filter(r => !r.class_id || myClasses.includes(r.class_id));
+    if(t === 'invites') return [];
+    return rows;
+  };
+  const ok = (data) => Promise.resolve({ data, error:null });
+  const clone = (x) => x == null ? x : JSON.parse(JSON.stringify(x));
+
+  function query(t){
+    const st = { op:'select', filters:[], order:null, limit:null, single:false, payload:null, ret:false };
+    const run = () => {
+      const tbl = T[t] || (T[t] = []);
+      const match = r => st.filters.every(f => f(r));
+      if(st.op === 'insert' || st.op === 'upsert'){
+        const rows = (Array.isArray(st.payload) ? st.payload : [st.payload]).map(r => Object.assign({ id:uid(), created_at:new Date().toISOString() }, r));
+        rows.forEach(r => tbl.unshift(r));
+        return { data: st.single ? clone(rows[0]) : clone(rows), error:null };
+      }
+      if(st.op === 'update'){
+        const hit = tbl.filter(match); hit.forEach(r => Object.assign(r, st.payload));
+        return { data: st.single ? clone(hit[0]||null) : clone(hit), error:null };
+      }
+      if(st.op === 'delete'){
+        for(let i = tbl.length - 1; i >= 0; i--) if(match(tbl[i])) tbl.splice(i, 1);
+        return { data:null, error:null };
+      }
+      let rows = visible(t, tbl).filter(match);
+      if(st.order){ const { col, asc } = st.order; rows = rows.slice().sort((a,b) => (a[col] > b[col] ? 1 : a[col] < b[col] ? -1 : 0) * (asc ? 1 : -1)); }
+      if(st.limit != null) rows = rows.slice(0, st.limit);
+      return { data: st.single ? clone(rows[0] || null) : clone(rows), error: null };
+    };
+    const q = {
+      select(){ if(st.op !== 'select') st.ret = true; return q; },
+      eq(c,v){ st.filters.push(r => r[c] === v); return q; },
+      neq(c,v){ st.filters.push(r => r[c] !== v); return q; },
+      in(c,arr){ st.filters.push(r => (arr||[]).includes(r[c])); return q; },
+      gte(c,v){ st.filters.push(r => r[c] >= v); return q; },
+      lte(c,v){ st.filters.push(r => r[c] <= v); return q; },
+      order(col, o){ st.order = { col, asc: !(o && o.ascending === false) }; return q; },
+      limit(n){ st.limit = n; return q; },
+      single(){ st.single = true; return q; },
+      maybeSingle(){ st.single = true; return q; },
+      insert(p){ st.op = 'insert'; st.payload = p; return q; },
+      upsert(p){ st.op = 'upsert'; st.payload = p; return q; },
+      update(p){ st.op = 'update'; st.payload = p; return q; },
+      delete(){ st.op = 'delete'; return q; },
+      then(res, rej){ return Promise.resolve(run()).then(res, rej); },
+      catch(f){ return Promise.resolve(run()).catch(f); }
+    };
+    return q;
+  }
+
+  const kid = (id) => T.children.find(c => c.id === id) || {};
+  const cname = (id) => (T.classes.find(c => c.id === id) || {}).name || '';
+  const upd = (r) => Object.assign({ full_name: kid(r.child_id).full_name, class_name: cname(kid(r.child_id).class_id) }, r);
+  let code = 1000;
+
+  const RPC = {
+    tenant_public: () => [T.kindergartens[0]],
+    is_owner: () => false,
+    my_consent: () => MY_KIDS.map(id => ({ child_id:id, consent_at:ago(9000), photo_consent:true, policy_version:'2026-10-04' })),
+    no_photo_children: () => [],
+    children_with_push: () => ['k1','k3','k4','k7'],
+    my_child_updates: () => T.daily_updates.filter(u => MY_KIDS.includes(u.child_id)).map(upd),
+    day_updates: () => T.daily_updates.filter(u => u.day === day()).map(upd),
+    my_bus_today: () => T.bus_logs.filter(b => MY_KIDS.includes(b.child_id) && b.day === day()).map(b => ({ child_id:b.child_id, trip:b.trip, boarded_at:b.boarded_at, arrived_at:b.arrived_at })),
+    toggle_attendance: ({ p_child }) => {
+      let r = T.attendance.find(a => a.child_id === p_child && a.day === day());
+      const now = new Date().toISOString();
+      if(!r){ r = { id:uid(), kindergarten_id:KG, child_id:p_child, day:day(), check_in_at:now, check_out_at:null }; T.attendance.push(r); }
+      else if(!r.check_in_at){ r.check_in_at = now; r.check_out_at = null; }
+      else if(!r.check_out_at){ r.check_out_at = now; }
+      else { r.check_in_at = null; r.check_out_at = null; }
+      return clone(r);
+    },
+    bus_roster: ({ p_trip }) => T.children.filter(c => c.rides_bus).map(c => {
+      const b = T.bus_logs.find(x => x.child_id === c.id && x.day === day() && x.trip === p_trip) || {};
+      return { child_id:c.id, full_name:c.full_name, gender:c.gender, bus_route:c.bus_route, class_name:cname(c.class_id),
+               boarded_at:b.boarded_at||null, arrived_at:b.arrived_at||null, absent: !!T.absences.find(a => a.child_id === c.id && a.day === day()) };
+    }),
+    bus_mark: ({ p_child, p_trip }) => {
+      let r = T.bus_logs.find(b => b.child_id === p_child && b.day === day() && b.trip === p_trip);
+      const now = new Date().toISOString();
+      if(!r){ r = { id:uid(), kindergarten_id:KG, child_id:p_child, day:day(), trip:p_trip, boarded_at:now, arrived_at:null }; T.bus_logs.push(r); }
+      else if(!r.boarded_at){ r.boarded_at = now; r.arrived_at = null; }
+      else if(!r.arrived_at){ r.arrived_at = now; }
+      else { r.boarded_at = null; r.arrived_at = null; }
+      return clone(r);
+    },
+    updatable_children: () => T.children.map(c => ({ id:c.id, full_name:c.full_name, gender:c.gender, class_id:c.class_id, class_name:cname(c.class_id),
+                                                    has_today: !!T.daily_updates.find(u => u.child_id === c.id && u.day === day()) })),
+    send_daily_update: (a) => {
+      (a.p_child_ids || []).forEach(id => {
+        const i = T.daily_updates.findIndex(u => u.child_id === id && u.day === day());
+        const row = { child_id:id, day:day(), meal:a.p_meal||null, nap:a.p_nap||null, mood:a.p_mood||null, bathroom:a.p_bathroom||null,
+                      note:a.p_note||null, photo_paths:a.p_photos||[], updated_at:new Date().toISOString() };
+        if(i >= 0) T.daily_updates[i] = row; else T.daily_updates.push(row);
+      });
+      return (a.p_child_ids || []).length;
+    },
+    report_absence: ({ p_child, p_day, p_reason, p_note }) => {
+      const r = { id:uid(), kindergarten_id:KG, child_id:p_child, day:p_day, reason:p_reason, note:p_note||null, created_by:ME, created_at:new Date().toISOString() };
+      const i = T.absences.findIndex(a => a.child_id === p_child && a.day === p_day);
+      if(i >= 0) T.absences[i] = r; else T.absences.push(r);
+      return clone(r);
+    },
+    cancel_absence: ({ p_child, p_day }) => { T.absences = T.absences.filter(a => !(a.child_id === p_child && a.day === p_day)); return null; },
+    set_pickup: ({ p_child, p_day, p_name, p_relation, p_phone }) => {
+      const r = { id:uid(), kindergarten_id:KG, child_id:p_child, day:p_day, person_name:p_name, relation:p_relation||null, phone:p_phone||null, created_by:ME, created_at:new Date().toISOString() };
+      T.pickups = T.pickups.filter(x => !(x.child_id === p_child && x.day === p_day)); T.pickups.push(r); return clone(r);
+    },
+    clear_pickup: ({ p_child, p_day }) => { T.pickups = T.pickups.filter(x => !(x.child_id === p_child && x.day === p_day)); return null; },
+    delete_post: ({ p_id }) => { T.posts = T.posts.filter(p => p.id !== p_id); return null; },
+    add_child: ({ p_name, p_class, p_gender }) => {
+      const id = 'k' + (++code); T.children.push({ id, kindergarten_id:KG, full_name:p_name, gender:p_gender||'f', class_id:p_class, active:true, rides_bus:false, bus_route:null });
+      const c = 'P-DEMO' + code; T.invites.push({ code:c, kindergarten_id:KG, role:'parent', child_id:id, label:'ولي الأمر', max_uses:4, uses:0, created_at:new Date().toISOString(), expires_at:new Date(Date.now()+90*864e5).toISOString(), revoked:false });
+      return [{ child_id:id, code:c }];
+    },
+    add_children_bulk: ({ p_rows }) => (p_rows || []).map(r => {
+      let cls = T.classes.find(c => c.name === r.class);
+      if(!cls && r.class){ cls = { id:'c' + (++code), kindergarten_id:KG, name:r.class }; T.classes.push(cls); }
+      const out = RPC.add_child({ p_name:r.name, p_class:cls && cls.id, p_gender:r.gender })[0];
+      return { full_name:r.name, class_name:r.class||'', code:out.code };
+    }),
+    add_child_code: () => [{ child_id:'k2', full_name:kid('k2').full_name }],
+    child_guardians: ({ p_child }) => MY_KIDS.includes(p_child) ? [{ id:ME, full_name:'ولي الأمر (تجربة)', phone:'0500000000' }] : [],
+    create_invite: ({ p_role, p_child, p_label, p_max, p_days }) => {
+      const r = { code:(p_role === 'parent' ? 'P-' : 'S-') + 'DEMO' + (++code), kindergarten_id:KG, role:p_role, child_id:p_child||null, label:p_label||null,
+                  max_uses:p_max || (p_role === 'parent' ? 4 : 1), uses:0, created_at:new Date().toISOString(),
+                  expires_at:new Date(Date.now() + (p_days || 30)*864e5).toISOString(), revoked:false };
+      T.invites.push(r); return clone(r);
+    },
+    attendance_report: () => T.children.map((c,i) => ({ child_id:c.id, full_name:c.full_name, class_name:cname(c.class_id), present: 14 + (i*3)%6, absent_reported: i%3, left_early:0 })),
+    consent_status: () => T.children.map((c,i) => ({ child_id:c.id, guardians: i < 6 ? 1 + i%2 : 0, consented: i < 6 ? 1 : 0, photo_declined: i === 4 ? 1 : 0 })),
+    kg_staff: () => [{ id:ME, full_name:names[role]||'', role, phone:'0500000000' }, { id:'t2', full_name:'أ. هيا (تجربة)', role:'teacher', phone:'0500000001' }],
+    open_resets: () => [],
+    export_kindergarten: () => ({ demo:true, note:'بيانات تجريبية' }),
+    purge_old_photos: () => 0,
+    redeem_invite: () => [{ kg:KG, r:role }],
+    owner_kindergartens: () => [], admin_delete_all_children: () => 0, admin_delete_all_classes: () => 0,
+    admin_reset_password: () => 'Demo1234'
+  };
+
+  const channel = () => { const ch = { on(){ return ch; }, subscribe(){ return ch; }, unsubscribe(){} }; return ch; };
+  return {
+    __demo: true,
+    auth: {
+      getSession: async () => ({ data:{ session:{ user:{ id:ME } } }, error:null }),
+      getUser: async () => ({ data:{ user:{ id:ME } }, error:null }),
+      signOut: async () => { exitDemo(); return { error:null }; },
+      updateUser: async () => ({ data:{}, error:null }),
+      signInWithPassword: async () => ({ data:{}, error:null }),
+      signUp: async () => ({ data:{}, error:null }),
+      onAuthStateChange: () => ({ data:{ subscription:{ unsubscribe(){} } } })
+    },
+    from: (t) => query(t),
+    rpc: async (name, args) => {
+      const f = RPC[name];
+      try { return { data: f ? f(args || {}) : null, error:null }; }
+      catch(e){ return { data:null, error:{ message:String(e && e.message || e) } }; }
+    },
+    storage: { from: () => ({
+      upload: async (path, file) => { try { PICS[path] = URL.createObjectURL(file); } catch(_){} return { data:{ path }, error:null }; },
+      createSignedUrls: async (paths) => ({ data:(paths||[]).map(p => ({ path:p, signedUrl: PICS[p] || PICS['demo/p1'] })), error:null }),
+      remove: async () => ({ data:[], error:null })
+    }) },
+    functions: { invoke: async () => ({ data:{ demo:true, sent:0 }, error:null }) },   // never notifies anyone
+    channel, removeChannel(){}
+  };
+}
+
+const sb = DEMO ? makeDemoClient(DEMO) : supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const app = document.getElementById('app');
 const toastEl = document.getElementById('toast');
@@ -485,6 +740,29 @@ const ICONS = {
   trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>'
 };
 
+/* ================= demo mode ================= */
+function demoRoleSheet(){
+  openSheet(`
+    <h2>جرّب كيدورا</h2>
+    <p class="help" style="margin:0">بيانات تجريبية — لا يُرسل أي إشعار ولا يُحفظ شيء. اختر كيف تريد أن ترى التطبيق:</p>
+    <div class="demoroles">
+      <button class="demorole" data-r="parent"><b>👩‍👦 ولي أمر</b><span>حضور طفلك، التقرير اليومي، الصور، الغياب والاستلام</span></button>
+      <button class="demorole" data-r="teacher"><b>👩‍🏫 معلمة</b><span>تسجيل الحضور، التقرير اليومي، نشر الأنشطة</span></button>
+      <button class="demorole" data-r="admin"><b>👩‍💼 مديرة الروضة</b><span>الأطفال والفصول، الرموز، الإعلانات والتقارير</span></button>
+    </div>
+    <button class="btn soft sm" id="dx">إلغاء</button>
+  `);
+  sheetPanel.querySelector('#dx').onclick = closeSheet;
+  sheetPanel.querySelectorAll('[data-r]').forEach(b => b.onclick = () => startDemo(b.dataset.r));
+}
+function demoBanner(){
+  const b = el(`<div class="demobar"><span>🧪 وضع التجربة — لا يُرسل شيء لأحد</span>
+    <button id="dswitch">تغيير الدور</button><button id="dexit">خروج</button></div>`);
+  b.querySelector('#dexit').onclick = exitDemo;
+  b.querySelector('#dswitch').onclick = demoRoleSheet;
+  return b;
+}
+
 /* ================= auth ================= */
 function renderAuth(mode){
   mode = mode || 'in';
@@ -515,8 +793,13 @@ function renderAuth(mode){
       <button class="btn" type="submit">${mode==='up'?'إنشاء الحساب':'دخول'}</button>
     </form>
     ${mode==='in' ? '<button class="linkbtn" id="forgot" style="align-self:center">نسيت كلمة المرور؟</button>' : ''}
+    <div class="trydemo">
+      <span>ما عندك حساب بعد؟</span>
+      <button class="btn soft" id="trydemo" type="button">جرّب التطبيق بدون حساب</button>
+    </div>
   </div>`);
   app.appendChild(v);
+  v.querySelector('#trydemo').onclick = demoRoleSheet;
 
   v.querySelectorAll('[data-m]').forEach(b => b.onclick = () => renderAuth(b.dataset.m));
   const forgot = v.querySelector('#forgot');
@@ -737,7 +1020,7 @@ function subscribe(){
 }
 
 // ---- offline queue: a tap at the door must never be lost to bad wifi ----
-const QKEY = 'pendingTaps_v1';
+const QKEY = DEMO ? 'pendingTaps_demo' : 'pendingTaps_v1';
 function queueGet(){ try { return JSON.parse(localStorage.getItem(QKEY) || '[]'); } catch(_){ return []; } }
 function queueSet(v){ try { localStorage.setItem(QKEY, JSON.stringify(v)); } catch(_){} }
 function stateOfRow(r){
@@ -3140,10 +3423,10 @@ function b64ToBytes(b64){
 }
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-const NativePush = IS_NATIVE && (PLATFORM !== 'android' || window.__ANDROID_PUSH === true)
+const NativePush = !DEMO && IS_NATIVE && (PLATFORM !== 'android' || window.__ANDROID_PUSH === true)
   && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
 const pushSupported = NativePush ? true
-  : (!IS_NATIVE && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window);
+  : (!DEMO && !IS_NATIVE && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window);
 
 // ---- iPhone app: Apple push (APNs). The token arrives through a listener. ----
 let nativeToken = null;
@@ -3297,6 +3580,7 @@ function renderInner(){
   if(!S.tab || !tabs.find(t=>t.k===S.tab)) S.tab = tabs[0].k;
 
   app.innerHTML = '';
+  if(DEMO) app.appendChild(demoBanner());
   const cls = S.classes.find(c=>c.id===S.activeClass);
   const sub = staff && S.tab==='roster' && cls ? 'فصل '+cls.name+' · '+fmtDay(new Date())
             : isBus && S.tab==='bus' ? BUS_TRIPS[S.busTrip] + ' · ' + fmtDay(new Date())
