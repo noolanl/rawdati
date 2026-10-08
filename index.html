@@ -9,8 +9,8 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="المبدعون الصغار">
-<title>المبدعون الصغار</title>
+<meta name="apple-mobile-web-app-title" content="Kidora">
+<title>Kidora — كيدورا</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap">
@@ -391,7 +391,7 @@ const NOTIF_DEFAULT = { attendance:true, activities:'instant', announcements:tru
 // new tables/functions may not be migrated yet — never let that break the app
 async function safe(promise){ try { const r = await promise; return r && r.error ? null : r; } catch(_) { return null; } }
 
-// ---- running inside the ونس iPhone app (Capacitor) rather than a browser ----
+// ---- running inside the Kidora iPhone/Android app (Capacitor) rather than a browser ----
 const IS_NATIVE = !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform());
 const PLATFORM = IS_NATIVE && typeof window.Capacitor.getPlatform === 'function' ? window.Capacitor.getPlatform() : 'web';
 if(IS_NATIVE){
@@ -399,13 +399,15 @@ if(IS_NATIVE){
   const vp = document.querySelector('meta[name="viewport"]');
   if(vp) vp.setAttribute('content','width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
 }
-const APP_BRAND = { name:'ونس', tagline:'تطبيق التواصل بين الروضة وأولياء الأمور', logo_url:'wanas-logo.png', theme:{} };
+const APP_BRAND = { name:'Kidora', tagline:'تطبيق التواصل بين الروضة وأولياء الأمور', logo_url:'wanas-logo.png', theme:{} };
 
-// ---- branding: one app, many kindergartens. On the web the subdomain picks the
-// tenant; in the app there is no subdomain, so it shows ونس until sign-in and
-// then the kindergarten the account belongs to. ----
-const SLUG = IS_NATIVE ? '' : (location.hostname.split('.')[0] || 'mubdioon').toLowerCase();
-const BRAND_FALLBACK = IS_NATIVE ? APP_BRAND
+// ---- branding: one app, many kindergartens. The apps and the shared site
+// (kidora.answer.sa) show Kidora until sign-in, then the account's kindergarten.
+// A kindergarten subdomain (old style, e.g. mubdioon.answer.sa) still picks its tenant. ----
+const HOST0 = (location.hostname.split('.')[0] || '').toLowerCase();
+const GENERIC = IS_NATIVE || ['kidora','www','localhost','127','app',''].includes(HOST0) || /github\.io$/.test(location.hostname);
+const SLUG = GENERIC ? '' : HOST0;
+const BRAND_FALLBACK = GENERIC ? APP_BRAND
   : { name:'المبدعون الصغار', tagline:'تطبيق التواصل بين الروضة وأولياء الأمور', logo_url:'logo.png', theme:{} };
 function brandLogo(){ return (S.brand && S.brand.logo_url) || 'logo.png'; }
 function kidsWord(n){
@@ -417,7 +419,7 @@ function kidsWord(n){
 function brandName(){ return (S.kg && S.kg.name) || (S.brand && S.brand.name) || BRAND_FALLBACK.name; }
 
 async function loadBrand(){
-  if(IS_NATIVE){ S.brand = APP_BRAND; applyBrand(); return; }
+  if(GENERIC){ S.brand = APP_BRAND; applyBrand(); return; }
   const r = await safe(sb.rpc('tenant_public', { p_slug: SLUG }));
   const row = r && r.data && r.data[0];
   S.brand = row || BRAND_FALLBACK;
@@ -645,7 +647,7 @@ async function loadCore(){
     refresh()
   ]);
   S.kg = kg.data; S.classes = classes.data || [];
-  if(IS_NATIVE && S.kg){
+  if(GENERIC && S.kg){
     S.brand = { name:S.kg.name, tagline:S.kg.tagline || APP_BRAND.tagline,
                 logo_url:S.kg.logo_url || APP_BRAND.logo_url, theme:S.kg.theme || {} };
     applyBrand();
@@ -3166,7 +3168,7 @@ async function enablePushNative(){
   let p = await NativePush.checkPermissions();
   if(p.receive === 'prompt' || p.receive === 'prompt-with-rationale') p = await NativePush.requestPermissions();
   S.nativePerm = p.receive;
-  if(p.receive !== 'granted') throw new Error('لم يُسمح بالإشعارات. فعّلها من الإعدادات ← ونس ← الإشعارات.');
+  if(p.receive !== 'granted') throw new Error('لم يُسمح بالإشعارات. فعّلها من الإعدادات ← Kidora ← الإشعارات.');
   await NativePush.register();
 }
 async function checkPushStateNative(){
@@ -3228,7 +3230,7 @@ function pushBanner(){
   if(NativePush){
     if(S.pushOn) return null;
     if(S.nativePerm === 'denied'){
-      return el(`<div class="notif info"><div class="t"><b>الإشعارات موقوفة</b><span>فعّلها من الإعدادات ← ونس ← الإشعارات.</span></div></div>`);
+      return el(`<div class="notif info"><div class="t"><b>الإشعارات موقوفة</b><span>فعّلها من الإعدادات ← Kidora ← الإشعارات.</span></div></div>`);
     }
   } else {
   if(!pushSupported) return (isIOS && !isStandalone) ? iosHint : null;

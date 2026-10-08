@@ -1,19 +1,19 @@
-// روضتي — service worker (push notifications)
+// Kidora — service worker (push notifications)
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 
 self.addEventListener('push', event => {
   let d = {};
   try { d = event.data ? event.data.json() : {}; }
-  catch (_) { d = { title: 'روضتي', body: event.data ? event.data.text() : '' }; }
-  const title = d.title || 'روضتي';
+  catch (_) { d = { title: 'Kidora', body: event.data ? event.data.text() : '' }; }
+  const title = d.title || 'Kidora';
   const options = {
     body: d.body || '',
     icon: 'icon-192.png',
     badge: 'icon-192.png',
     dir: 'rtl',
     lang: 'ar',
-    tag: d.tag || 'rawdati',
+    tag: d.tag || 'kidora',
     renotify: true,
     data: { url: d.url || './' }
   };
