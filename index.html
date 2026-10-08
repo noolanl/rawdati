@@ -3635,11 +3635,20 @@ function renderInner(){
 
 /* ================= boot ================= */
 async function boot(){
+  // links like kidora.answer.sa/?demo=parent open the demo straight away
+  if(!DEMO){
+    const want = new URLSearchParams(location.search).get('demo');
+    if(want !== null){
+      history.replaceState(null, '', location.pathname);
+      if(['parent','teacher','admin'].includes(want)) { startDemo(want); return; }
+      boot.openDemo = true;
+    }
+  }
   app.innerHTML = '<div class="spin"></div>';
   if(!S.brand) await loadBrand();
   const { data } = await sb.auth.getSession();
   S.session = data.session;
-  if(!S.session){ renderAuth('in'); return; }
+  if(!S.session){ renderAuth('in'); if(boot.openDemo){ boot.openDemo = false; demoRoleSheet(); } return; }
   const ready = await loadCore();
   if(!ready){ renderNeedsCode(); return; }
   subscribe();
