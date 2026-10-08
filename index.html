@@ -2192,6 +2192,25 @@ function adminOverview(){
   });
   wrap.appendChild(bars);
 
+  // parents onboarding: how many children already have a registered parent
+  if(total && !S.preview){
+    if(!S.invites.length && !adminOverview.loading){
+      adminOverview.loading = true;
+      safe(loadInvites()).then(() => { if(S.invites.length) softRender(); });
+    }
+    const joined = S.children.filter(c => S.invites.some(i => i.child_id === c.id && (i.uses||0) > 0)).length;
+    if(S.invites.length && joined < total){
+      const pct = Math.round(joined / total * 100);
+      const ob = el(`<div class="card"><h3>انضمام أولياء الأمور</h3>
+        <div class="bar"><div class="lbl"><span>سجّل أولياء أمور ${joined} من ${kidsWord(total)}</span>
+          <span class="track"><span class="fill" style="width:${pct}%"></span></span></div><span class="val num">${pct}%</span></div>
+        <p class="help">اطبعي بطاقات QR للباقين، أو أرسلي الرمز بواتساب من صفحة كل طفل.</p>
+        <button class="btn soft sm" id="obprint">🖨 طباعة بطاقات من لم يسجّل</button></div>`);
+      ob.querySelector('#obprint').onclick = printCodesSheet;
+      wrap.appendChild(ob);
+    }
+  }
+
   const abs = S.children
     .map(c => ({c, ab: absenceOf(c.id)}))
     .filter(x => x.ab);
