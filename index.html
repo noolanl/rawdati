@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FFFFFF">
+<script>if(location.protocol==='http:' && /(^|\.)answer\.sa$/.test(location.hostname)) location.replace('https://' + location.host + location.pathname + location.search + location.hash);</script>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -68,11 +69,28 @@ main{flex:1;padding:16px 16px 100px;display:flex;flex-direction:column;gap:16px}
 
 /* ===== auth ===== */
 .auth{max-width:410px;margin:0 auto;padding:34px 22px 48px;display:flex;flex-direction:column;gap:18px;min-height:100%;justify-content:center}
-.auth{width:100%;flex:1;min-height:100vh;min-height:100dvh;
+.auth{width:100%;flex:1;min-height:100vh;min-height:100dvh;justify-content:flex-start;
   padding-top:calc(24px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
   padding-bottom:calc(24px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)))}
 .auth-logo{display:block;width:104px;margin:0 auto 2px;padding:14px;background:#fff;border-radius:28px;box-shadow:var(--shadow-sm)}
 .auth h1{font-size:27px;text-align:center}
+/* sign-in screens: the page itself never scrolls or bounces; only this box scrolls, and only if it must */
+html.authmode, html.authmode body{height:100%;overflow:hidden;overscroll-behavior:none}
+html.authmode #app{height:100%;min-height:0}
+html.authmode .auth{height:100%;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.auth > :first-child{margin-top:auto}
+.auth > :last-child{margin-bottom:auto}
+@media (max-height:940px){
+  .auth{gap:14px}
+  .auth-logo{width:90px;padding:12px;border-radius:25px}
+  .trydemo{padding-top:12px;margin-top:2px;gap:6px}
+}
+@media (max-height:760px){
+  .auth{gap:12px}
+  .auth-logo{width:78px;padding:10px;border-radius:22px}
+  .auth h1{font-size:23px}
+  .trydemo{padding-top:10px;margin-top:0}
+}
 .trydemo{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:6px;padding-top:16px;border-top:1px solid var(--line)}
 .trydemo span{font-size:13px;color:var(--ink-2)}
 .trydemo .btn{width:100%}
@@ -313,6 +331,19 @@ nav.tabs button{
   display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--ink-2);font-weight:600;
 }
 nav.tabs button[aria-current="page"]{color:var(--pink)}
+nav.tabs button{position:relative}
+.tbadge{position:absolute;top:2px;inset-inline-start:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:999px;
+  background:var(--pink);color:#fff;font-size:11px;font-style:normal;font-weight:700;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--surface)}
+.reports{display:flex;flex-direction:column;gap:10px}
+.reports .rhead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.reports .newcount{background:var(--pink-soft);color:var(--pink-ink);font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px}
+.rrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--sunken)}
+.rrow.new{background:var(--pink-soft)}
+.ricon{font-size:20px;flex:none}
+.rtxt{flex:1;min-width:0;display:flex;flex-direction:column}
+.rtxt b{font-size:14px}
+.rtxt span{font-size:12.5px;color:var(--ink-2)}
+.rnew{flex:none;font-size:11px;font-weight:700;color:#fff;background:var(--pink);border-radius:999px;padding:2px 8px}
 nav.tabs svg{width:21px;height:21px}
 
 /* ===== sheet + toast ===== */
@@ -414,7 +445,7 @@ function makeDemoClient(role){
       { id:uid(), kindergarten_id:KG, class_id:null, author_id:'a', kind:'announcement', body:'تذكير: رحلة الحديقة يوم الخميس — نرجو إرسال قبعة وقارورة ماء.', photo_paths:[], created_at:ago(60*20) },
       { id:uid(), kindergarten_id:KG, class_id:'c2', author_id:'t', kind:'activity', body:'زرعنا بذور الفاصوليا في أكواب صغيرة، وكل طفل كتب اسمه على كوبه 🌱', photo_paths:['demo/p3'], created_at:ago(60*26) }
     ],
-    absences: [ { id:uid(), kindergarten_id:KG, child_id:'k5', day:day(), reason:'مرض', note:'حرارة خفيفة', created_by:'p', created_at:ago(150) } ],
+    absences: [ { id:uid(), kindergarten_id:KG, child_id:'k5', day:day(), reason:'sick', note:'حرارة خفيفة', created_by:'p', created_at:ago(150) } ],
     pickups: [ { id:uid(), kindergarten_id:KG, child_id:'k3', day:day(), person_name:'خالها محمد', relation:'خال', phone:'', created_by:'p', created_at:ago(120) } ],
     bus_logs: [ { id:uid(), kindergarten_id:KG, child_id:'k1', day:day(), trip:'am', boarded_at:at(7,5), arrived_at:at(7,40) },
                 { id:uid(), kindergarten_id:KG, child_id:'k3', day:day(), trip:'am', boarded_at:at(7,10), arrived_at:at(7,34) } ],
@@ -766,6 +797,7 @@ function demoBanner(){
 /* ================= auth ================= */
 function renderAuth(mode){
   mode = mode || 'in';
+  document.documentElement.classList.add('authmode');
   app.innerHTML = '';
   const v = el(`<div class="auth">
     <img class="auth-logo" src="${esc(brandLogo())}" alt="${esc(brandName())}">
@@ -891,6 +923,7 @@ function bindForgot(){
 }
 
 function renderNeedsCode(){
+  document.documentElement.classList.add('authmode');
   app.innerHTML='';
   const v = el(`<div class="auth">
     <img class="auth-logo" src="${esc(brandLogo())}" alt="">
@@ -1072,6 +1105,49 @@ window.addEventListener('online', () => flushQueue());
 function absenceOf(childId, day){ return S.absences[childId + '|' + (day||today())] || null; }
 function pickupOf(childId, day){ return S.pickups[childId + '|' + (day||today())] || null; }
 
+// ---- parent reports (absence / pickup) shown to staff inside the app, no push ----
+const SEEN_KEY = DEMO ? 'kidora_seen_reports_demo' : 'kidora_seen_reports';
+function seenReports(){ try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')); } catch(_){ return new Set(); } }
+function markReportsSeen(ids){
+  const s = seenReports(); ids.forEach(i => s.add(i));
+  try { localStorage.setItem(SEEN_KEY, JSON.stringify(Array.from(s).slice(-400))); } catch(_){}
+}
+function parentReports(classId){
+  const kids = new Map(S.children.filter(c => !classId || c.class_id === classId).map(c => [c.id, c]));
+  const out = [];
+  Object.values(S.absences || {}).forEach(a => { const c = kids.get(a.child_id); if(c && a.day >= today())
+    out.push({ id:'a:' + a.id, kind:'absence', child:c, day:a.day, at:a.created_at,
+               text: 'غياب ' + (a.day === today() ? 'اليوم' : fmtDay(new Date(a.day + 'T12:00:00'))) + ' · ' + (REASONS[a.reason] || a.reason || '') + (a.note ? ' · ' + a.note : '') }); });
+  Object.values(S.pickups || {}).forEach(p => { const c = kids.get(p.child_id); if(c && p.day >= today())
+    out.push({ id:'p:' + p.id, kind:'pickup', child:c, day:p.day, at:p.created_at,
+               text: 'يستلمه ' + (p.day === today() ? 'اليوم' : fmtDay(new Date(p.day + 'T12:00:00'))) + ': ' + p.person_name + (p.relation ? ' (' + p.relation + ')' : '') }); });
+  return out.sort((x, y) => String(y.at || '').localeCompare(String(x.at || '')));
+}
+function unseenReportCount(){
+  const role = actingRole();
+  if(role !== 'admin' && role !== 'teacher') return 0;
+  const seen = seenReports();
+  return parentReports().filter(r => !seen.has(r.id)).length;
+}
+function reportsCard(classId){
+  const list = parentReports(classId);
+  if(!list.length) return null;
+  const seen = seenReports();
+  const fresh = list.filter(r => !seen.has(r.id));
+  const card = el(`<div class="card reports"><div class="rhead"><h3>بلاغات أولياء الأمور</h3>
+    ${fresh.length ? `<span class="newcount">${fresh.length} جديد</span>` : ''}</div></div>`);
+  list.slice(0, 8).forEach(r => card.appendChild(el(`<div class="rrow ${seen.has(r.id) ? '' : 'new'}">
+    <span class="ricon">${r.kind === 'absence' ? '🤒' : '🚸'}</span>
+    <span class="rtxt"><b>${esc(r.child.full_name)}</b><span>${esc(r.text)}</span></span>
+    ${seen.has(r.id) ? '' : '<span class="rnew">جديد</span>'}</div>`)));
+  if(fresh.length){
+    const b = el('<button class="btn soft sm">تم الاطلاع</button>');
+    b.onclick = () => { markReportsSeen(fresh.map(r => r.id)); render(); };
+    card.appendChild(b);
+  }
+  return card;
+}
+
 /* ================= bus ================= */
 const BUS_TRIPS = { am:'رحلة الصباح', pm:'رحلة العودة' };
 const ROLE_AR = { admin:'مديرة', teacher:'معلمة', bus:'مرافقة الحافلة', parent:'ولي أمر' };
@@ -1138,6 +1214,9 @@ function viewRoster(){
     <div class="pill no"><b class="num">${kids.length-inN-leftN-absN}</b><span>لم يصل</span></div>
     <div class="pill blue"><b class="num">${absN}</b><span>غياب مُبلّغ</span></div>
   </div>`));
+
+  const rc = reportsCard(S.activeClass);
+  if(rc) wrap.appendChild(rc);
 
   const drBtn = el('<button class="btn blue" style="width:100%">تقرير اليوم</button>');
   drBtn.onclick = dailyReportSheet;
@@ -1838,7 +1917,7 @@ function absenceSheet(child){
       btn.disabled = false; btn.textContent = 'إرسال البلاغ'; return;
     }
     S.absences[child.id + '|' + p_day] = data;
-    notifyServer({ type:'absence', child_id: child.id, day: p_day });
+    // no push: staff see it in «بلاغات أولياء الأمور» inside the app
     closeSheet(); toast('تم إرسال البلاغ للروضة'); render();
   };
 }
@@ -1870,7 +1949,6 @@ function pickupSheet(child){
       btn.disabled = false; btn.textContent = 'حفظ'; return;
     }
     S.pickups[child.id + '|' + today()] = r.data;
-    notifyServer({ type:'pickup', child_id: child.id, day: today() });
     closeSheet(); toast('تم إبلاغ الروضة'); render();
   };
 }
@@ -3579,6 +3657,7 @@ function renderInner(){
    .concat([{k:'settings',l:'الإعدادات',i:'gear'}]);
   if(!S.tab || !tabs.find(t=>t.k===S.tab)) S.tab = tabs[0].k;
 
+  document.documentElement.classList.remove('authmode');
   app.innerHTML = '';
   if(DEMO) app.appendChild(demoBanner());
   const cls = S.classes.find(c=>c.id===S.activeClass);
@@ -3619,7 +3698,8 @@ function renderInner(){
   if(tabs.length>1){
     const nav = el('<nav class="tabs"></nav>');
     tabs.forEach(t=>{
-      const b = el(`<button ${S.tab===t.k?'aria-current="page"':''}>${ICONS[t.i]}<span>${t.l}</span></button>`);
+      const nNew = t.k === 'roster' ? unseenReportCount() : 0;
+      const b = el(`<button ${S.tab===t.k?'aria-current="page"':''}>${ICONS[t.i]}<span>${t.l}</span>${nNew ? `<i class="tbadge">${nNew > 9 ? '9+' : nNew}</i>` : ''}</button>`);
       b.onclick = async ()=>{ S.tab=t.k; render();
         if(t.k==='admin'){
           await Promise.all([ S.invites.length ? null : loadInvites(), S.staff.length ? null : loadStaff(), loadResets() ]);
