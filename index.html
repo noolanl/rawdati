@@ -969,6 +969,21 @@ function bindForgot(){
   };
 }
 
+function renderOffline(){
+  document.documentElement.classList.add('authmode');
+  app.innerHTML = '';
+  const v = el(`<div class="auth">
+    <img class="auth-logo" src="${esc(brandLogo())}" alt="">
+    <h1>لا يوجد اتصال</h1>
+    <p class="sub">تأكد من الإنترنت ثم حاول مرة أخرى. سيتم التحديث تلقائيًا عند عودة الاتصال.</p>
+    <button class="btn" id="retry">إعادة المحاولة</button>
+  </div>`);
+  app.appendChild(v);
+  const again = () => { window.removeEventListener('online', again); boot(); };
+  v.querySelector('#retry').onclick = again;
+  window.addEventListener('online', again);
+}
+
 function renderNeedsCode(){
   document.documentElement.classList.add('authmode');
   app.innerHTML='';
@@ -998,7 +1013,8 @@ function renderNeedsCode(){
 
 /* ================= data ================= */
 async function loadCore(){
-  const { data: prof } = await sb.from('profiles').select('*').eq('id', S.session.user.id).single();
+  const { data: prof, error: perr } = await sb.from('profiles').select('*').eq('id', S.session.user.id).single();
+  if(perr && perr.code !== 'PGRST116' && !prof) return 'offline';   // network trouble, not a missing profile
   S.profile = prof;
   if(!prof || !prof.kindergarten_id) return false;
   const isStaff0 = prof.role === 'admin' || prof.role === 'teacher';
@@ -3851,8 +3867,10 @@ async function boot(){
   S.session = data.session;
   if(!S.session){ renderAuth(pendingCode() ? 'up' : 'in'); if(boot.openDemo){ boot.openDemo = false; demoRoleSheet(); } return; }
   const ready = await loadCore();
+  if(ready === 'offline'){ renderOffline(); return; }
   if(!ready){ renderNeedsCode(); return; }
   subscribe();
+  if(!DEMO) registerSW();   // also gives the web app an offline copy of itself
   S.pending = new Set(queueGet().map(x => x.child_id));
   await checkPushState();
   render();
