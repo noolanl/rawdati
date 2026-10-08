@@ -472,7 +472,9 @@ function makeDemoClient(role){
     bus_logs: [ { id:uid(), kindergarten_id:KG, child_id:'k1', day:day(), trip:'am', boarded_at:at(7,5), arrived_at:at(7,40) },
                 { id:uid(), kindergarten_id:KG, child_id:'k3', day:day(), trip:'am', boarded_at:at(7,10), arrived_at:at(7,34) } ],
     daily_updates: [ { child_id:'k1', day:day(), meal:'all', nap:'slept', mood:'happy', bathroom:null, note:'أكلت وجبتها كاملة وشاركت في الرسم بحماس.', photo_paths:['demo/p4'], updated_at:ago(30) } ],
-    invites: [], push_subscriptions: []
+    invites: [], push_subscriptions: [],
+    parent_notes: [ { id:uid(), kindergarten_id:KG, child_id:'k3', author_id:'p2', body:'جود عندها موعد أسنان الساعة ١١، بيجي أبوها ياخذها ١٠:٣٠.', created_at:ago(40), read_at:null },
+                    { id:uid(), kindergarten_id:KG, child_id:'k1', author_id:'p', body:'نرجو تذكير لمى بشرب الماء، الجو حار اليوم.', created_at:ago(200), read_at:ago(150) } ]
   };
   T.children.forEach(c => T.invites.push({ code:'P-DEMO' + c.id.slice(1).padStart(4,'0'), kindergarten_id:KG, role:'parent', child_id:c.id,
     label:'ولي الأمر', max_uses:4, uses:c.id==='k1'||c.id==='k2'?1:0, used_by:null, created_at:ago(9000), expires_at:new Date(Date.now()+80*864e5).toISOString(), revoked:false }));
@@ -485,7 +487,7 @@ function makeDemoClient(role){
     if(role !== 'parent') return rows;
     const myClasses = T.children.filter(c => MY_KIDS.includes(c.id)).map(c => c.class_id);
     if(['children'].includes(t)) return rows.filter(r => MY_KIDS.includes(r.id));
-    if(['attendance','absences','pickups','bus_logs'].includes(t)) return rows.filter(r => MY_KIDS.includes(r.child_id));
+    if(['attendance','absences','pickups','bus_logs','parent_notes'].includes(t)) return rows.filter(r => MY_KIDS.includes(r.child_id));
     if(t === 'posts') return rows.filter(r => !r.class_id || myClasses.includes(r.class_id));
     if(t === 'invites') return [];
     return rows;
@@ -623,6 +625,7 @@ function makeDemoClient(role){
     open_resets: () => [],
     export_kindergarten: () => ({ demo:true, note:'بيانات تجريبية' }),
     purge_old_photos: () => 0,
+    mark_notes_read: ({ p_ids }) => { let n = 0; T.parent_notes.forEach(x => { if((p_ids||[]).includes(x.id) && !x.read_at){ x.read_at = new Date().toISOString(); n++; } }); return n; },
     redeem_invite: () => [{ kg:KG, r:role }],
     owner_kindergartens: () => [], admin_delete_all_children: () => 0, admin_delete_all_classes: () => 0,
     admin_reset_password: () => 'Demo1234'
@@ -655,7 +658,6 @@ function makeDemoClient(role){
     channel, removeChannel(){}
   };
 }
-
 const sb = DEMO ? makeDemoClient(DEMO) : supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ---------- error reports: unexpected JS errors go to the server (max 5 per session, no personal data) ---------- */
@@ -1072,6 +1074,12 @@ async function refresh(){
   (ab.data||[]).forEach(r => S.absences[r.child_id + '|' + r.day] = r);
   // daily reports: parents see their own children's, staff see today's
   S.updates = (du && du.data) ? du.data : [];
+  if(role0 !== 'bus'){
+    const since = new Date(Date.now() - (role0 === 'parent' ? 14 : 7) * 864e5).toISOString();
+    const nt = await safe(sb.from('parent_notes').select('*').gte('created_at', since).order('created_at', { ascending:false }).limit(100));
+    S.notes = (nt && nt.data) || [];
+    S.notesOn = !!nt;   // false until the parent_notes table exists on the server
+  }
   S.pickups = {};
   if(pk) (pk.data||[]).forEach(r => S.pickups[r.child_id + '|' + r.day] = r);
   if(S.profile.role === 'parent'){
@@ -1186,28 +1194,45 @@ function parentReports(classId){
   Object.values(S.pickups || {}).forEach(p => { const c = kids.get(p.child_id); if(c && p.day >= today())
     out.push({ id:'p:' + p.id, kind:'pickup', child:c, day:p.day, at:p.created_at,
                text: 'يستلمه ' + (p.day === today() ? 'اليوم' : fmtDay(new Date(p.day + 'T12:00:00'))) + ': ' + p.person_name + (p.relation ? ' (' + p.relation + ')' : '') }); });
+  (S.notes || []).forEach(n => { const c = kids.get(n.child_id); if(c)
+    out.push({ id:'n:' + n.id, noteId:n.id, read:!!n.read_at, kind:'note', child:c, at:n.created_at,
+               text: n.body + ' · ' + fmtWhen(n.created_at) }); });
   return out.sort((x, y) => String(y.at || '').localeCompare(String(x.at || '')));
+}
+function fmtWhen(iso){
+  try { const d = new Date(iso);
+        return (d.toDateString() === new Date().toDateString() ? 'اليوم ' : fmtDay(d) + ' ') + fmtTime(d); } catch(_){ return ''; }
 }
 function unseenReportCount(){
   const role = actingRole();
   if(role !== 'admin' && role !== 'teacher') return 0;
   const seen = seenReports();
-  return parentReports().filter(r => !seen.has(r.id)).length;
+  return parentReports().filter(r => !seen.has(r.id) && !r.read).length;
 }
 function reportsCard(classId){
   const list = parentReports(classId);
   if(!list.length) return null;
   const seen = seenReports();
-  const fresh = list.filter(r => !seen.has(r.id));
+  const fresh = list.filter(r => !seen.has(r.id) && !r.read);
+  const isNew = r => !seen.has(r.id) && !r.read;
   const card = el(`<div class="card reports"><div class="rhead"><h3>بلاغات أولياء الأمور</h3>
     ${fresh.length ? `<span class="newcount">${fresh.length} جديد</span>` : ''}</div></div>`);
-  list.slice(0, 8).forEach(r => card.appendChild(el(`<div class="rrow ${seen.has(r.id) ? '' : 'new'}">
-    <span class="ricon">${r.kind === 'absence' ? '🤒' : '🚸'}</span>
+  list.slice(0, 10).forEach(r => card.appendChild(el(`<div class="rrow ${isNew(r) ? 'new' : ''}">
+    <span class="ricon">${r.kind === 'absence' ? '🤒' : r.kind === 'note' ? '💬' : '🚸'}</span>
     <span class="rtxt"><b>${esc(r.child.full_name)}</b><span>${esc(r.text)}</span></span>
-    ${seen.has(r.id) ? '' : '<span class="rnew">جديد</span>'}</div>`)));
+    ${isNew(r) ? '<span class="rnew">جديد</span>' : ''}</div>`)));
   if(fresh.length){
     const b = el('<button class="btn soft sm">تم الاطلاع</button>');
-    b.onclick = () => { markReportsSeen(fresh.map(r => r.id)); render(); };
+    b.onclick = async () => {
+      markReportsSeen(fresh.map(r => r.id));
+      const ids = fresh.filter(r => r.noteId).map(r => r.noteId);
+      if(ids.length && !S.preview){
+        await safe(sb.rpc('mark_notes_read', { p_ids: ids }));
+        const now = new Date().toISOString();
+        (S.notes || []).forEach(n => { if(ids.includes(n.id)) n.read_at = now; });
+      }
+      render();
+    };
     card.appendChild(b);
   }
   return card;
@@ -1910,6 +1935,11 @@ function viewParent(){
     pb.onclick = () => { if(!previewBlock()) pickupSheet(c); };
     acts.appendChild(pb);
     wrap.appendChild(acts);
+    if(S.notesOn){
+      const nb = el(`<button class="btn soft sm">💬 رسالة للمعلمة</button>`);
+      nb.onclick = () => { if(!previewBlock()) noteSheet(c); };
+      wrap.appendChild(nb);
+    }
   });
   const addKid = el('<button class="btn soft sm" style="align-self:center">+ إضافة طفل آخر</button>');
   addKid.onclick = () => { if(!previewBlock()) linkSiblingSheet(); };
@@ -1984,6 +2014,37 @@ function absenceSheet(child){
     S.absences[child.id + '|' + p_day] = data;
     // no push: staff see it in «بلاغات أولياء الأمور» inside the app
     closeSheet(); toast('تم إرسال البلاغ للروضة'); render();
+  };
+}
+
+function noteSheet(child){
+  const mine = (S.notes || []).filter(n => n.child_id === child.id).slice(0, 5);
+  openSheet(`
+    <h3>رسالة لمعلمة ${esc(first(child.full_name))}</h3>
+    <p class="help">ملاحظة قصيرة تظهر للمعلمة في التطبيق، مثل: «عنده موعد طبيب الساعة ١١» أو «نرجو تذكيره بشرب الدواء». للأمور العاجلة اتصل بالروضة.</p>
+    <div class="field"><textarea id="nbody" rows="4" maxlength="500" placeholder="اكتب رسالتك…"></textarea></div>
+    <div id="nmsg"></div>
+    <button class="btn" id="nsend">إرسال</button>
+    <button class="btn soft sm" id="ncancel">إلغاء</button>
+    ${mine.length ? `<p class="help" style="margin:8px 0 4px">آخر رسائلك</p><div class="rowlist">${mine.map(n => `
+      <div class="row" style="cursor:default"><span class="nm"><b style="font-weight:500;white-space:normal">${esc(n.body)}</b>
+      <span>${esc(fmtWhen(n.created_at))} · ${n.read_at ? 'تمت القراءة ✓' : 'أُرسلت'}</span></span></div>`).join('')}</div>` : ''}
+  `);
+  sheetPanel.querySelector('#ncancel').onclick = closeSheet;
+  sheetPanel.querySelector('#nsend').onclick = async () => {
+    const body = sheetPanel.querySelector('#nbody').value.trim();
+    if(!body){ sheetPanel.querySelector('#nmsg').innerHTML = '<div class="err">اكتب الرسالة أولًا.</div>'; return; }
+    const btn = sheetPanel.querySelector('#nsend'); btn.disabled = true; btn.textContent = 'جارٍ الإرسال…';
+    const { data, error } = await sb.from('parent_notes').insert({
+      kindergarten_id: S.kg.id, child_id: child.id, author_id: S.profile.id, body
+    }).select().single();
+    if(error){
+      sheetPanel.querySelector('#nmsg').innerHTML = '<div class="err">' +
+        (/TOO_MANY/.test(error.message || '') ? 'وصلت للحد اليومي من الرسائل.' : 'تعذّر الإرسال. حاول مرة أخرى.') + '</div>';
+      btn.disabled = false; btn.textContent = 'إرسال'; return;
+    }
+    S.notes = [data].concat(S.notes || []);
+    closeSheet(); toast('وصلت رسالتك للروضة'); render();
   };
 }
 
