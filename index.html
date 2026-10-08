@@ -5,6 +5,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; media-src 'self' blob: https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FFFFFF">
+<meta name="apple-itunes-app" content="app-id=6819013599">
 <script>if(location.protocol==='http:' && /(^|\.)answer\.sa$/.test(location.hostname)) location.replace('https://' + location.host + location.pathname + location.search + location.hash);</script>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
@@ -315,6 +316,7 @@ body:has(.demobar) .topbar{position:relative;padding-top:12px !important}
 .notif .t{flex:1;min-width:0}
 .notif .t b{display:block;font-size:14px}
 .notif .t span{font-size:12.5px;color:var(--ink-2)}
+.notif .nbtn{border-radius:999px;padding:10px 16px;flex:none;background:var(--yellow);color:#fff;font-weight:700;font-size:13.5px;text-decoration:none;font-family:"Baloo Bhaijaan 2",sans-serif}
 .notif button{
   border:none;border-radius:999px;padding:10px 18px;cursor:pointer;flex:none;
   background:var(--yellow);color:#fff;font-weight:700;font-size:13.5px;font-family:"Baloo Bhaijaan 2",sans-serif;
@@ -3695,8 +3697,10 @@ async function signedUrls(paths){
 function notifyServer(payload){ sb.functions.invoke('notify', { body: payload }).catch(()=>{}); }
 
 function pushBanner(){
-  const iosHint = el(`<div class="notif info">
-    <div class="t"><b>فعّل الإشعارات</b><span>افتح قائمة المشاركة ⬆️ ثم «إضافة إلى الشاشة الرئيسية»، وشغّل التطبيق من هناك.</span></div>
+  // on iPhone Safari the App Store app is the reliable way to get alerts
+  const iosHint = el(`<div class="notif">
+    <div class="t"><b>حمّل تطبيق كيدورا</b><span>لتصلك الإشعارات فور وصول طفلك. سجّل الدخول فيه بنفس رقم الجوال وكلمة المرور.</span></div>
+    <a class="nbtn" href="https://apps.apple.com/sa/app/id6819013599" target="_blank" rel="noopener">App Store</a>
   </div>`);
   if(NativePush){
     if(S.pushOn) return null;
