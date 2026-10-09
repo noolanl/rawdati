@@ -3289,6 +3289,24 @@ function viewPlatform(){
   pv.appendChild(grid);
   wrap.appendChild(pv);
 
+  // owner: work inside another kindergarten (e.g. the test one) without touching the pilot
+  const others = S.tenants.filter(t => !S.kg || t.id !== S.kg.id);
+  if(others.length){
+    const sw = el(`<div class="card"><h3>الروضة التي تعمل فيها</h3>
+      <p class="help">أنت الآن في <b>${esc(S.kg ? S.kg.name : '')}</b>. للتجربة بأمان انتقل إلى الروضة التجريبية — كل ما تفعله هناك لا يمسّ الروضات الأخرى، وتستطيع الرجوع في أي وقت.</p></div>`);
+    others.forEach(t => {
+      const b = el(`<button class="btn soft sm">الانتقال إلى ${esc(t.name)}</button>`);
+      b.onclick = async () => {
+        b.disabled = true;
+        const r = await safe(sb.rpc('owner_switch_kg', { p_kg: t.id }));
+        if(!r){ b.disabled = false; toast('تعذّر الانتقال'); return; }
+        toast('جارٍ الانتقال…'); setTimeout(() => location.reload(), 400);
+      };
+      sw.appendChild(b);
+    });
+    wrap.appendChild(sw);
+  }
+
   const add = el('<button class="btn">إضافة روضة جديدة</button>');
   add.onclick = newTenantSheet;
   wrap.appendChild(add);
@@ -3307,10 +3325,9 @@ function viewPlatform(){
   wrap.appendChild(list);
 
   wrap.appendChild(el(`<div class="card"><h3>كيف تُضاف روضة جديدة</h3>
-    <p class="help">١. أضف الروضة هنا واختر نطاقها الفرعي.<br>
-    ٢. أضف سجل CNAME في Cloudflare يشير إلى noolanl.github.io.<br>
-    ٣. أعطِ المديرة رمز الدخول — تدخل وتبني فصولها وأطفالها بنفسها.<br>
-    التطبيق واحد للجميع؛ الهوية تتغيّر حسب النطاق.</p></div>`));
+    <p class="help">١. أضف الروضة هنا.<br>
+    ٢. أعطِ المديرة رمز الدخول — تحمّل تطبيق كيدورا (أو تفتح kidora.answer.sa) وتبني فصولها وأطفالها بنفسها.<br>
+    التطبيق واحد للجميع؛ بعد الدخول يظهر اسم الروضة وشعارها.</p></div>`));
   return wrap;
 }
 
