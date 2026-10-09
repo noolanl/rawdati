@@ -2381,7 +2381,7 @@ function adminOverview(){
       const ob = el(`<div class="card"><h3>انضمام أولياء الأمور</h3>
         <div class="bar"><div class="lbl"><span>سجّل أولياء أمور ${joined} من ${kidsWord(total)}</span>
           <span class="track"><span class="fill" style="width:${pct}%"></span></span></div><span class="val num">${pct}%</span></div>
-        <p class="help">أرسلي لأهل الباقين صورة البطاقة (فيها الرمز وطريقة التسجيل).</p>
+        <p class="help">أرسلي لأهل الباقين بطاقة ولي الأمر (فيها الرمز وروابط التحميل).</p>
         <button class="btn soft sm" id="obprint">🖼 بطاقات من لم يسجّل</button></div>`);
       ob.querySelector('#obprint').onclick = bulkCardsSheet;
       wrap.appendChild(ob);
@@ -2496,10 +2496,11 @@ async function makeCardCanvas(child, code){
   const cv = document.createElement('canvas');
   cv.width = CARD_W; cv.height = CARD_H;
   try { if(document.fonts && document.fonts.ready) await document.fonts.ready; } catch(_){}
-  drawParentCard(cv.getContext('2d'), {
+  const meta = drawParentCard(cv.getContext('2d'), {
     kgName: brandName(), childName: child.full_name, className: cls ? cls.name : '',
     code: code, host: 'kidora.answer.sa'
   });
+  cv.cardMeta = Object.assign({ code }, meta);
   return cv;
 }
 // parent mobile, stored as 9665XXXXXXXX (same rules as norm_phone in the database)
@@ -2516,11 +2517,12 @@ const showPhone = ph => !ph ? '' : /^9665\d{8}$/.test(ph) ? '0' + ph.slice(3) : 
 function cardMessage(child, code){
   return `السلام عليكم، هذه بطاقة ولي أمر ${first(child.full_name)} في ${brandName()}.\n` +
          `رمز التسجيل: ${code}\n` +
+         `لنسخ الرمز بضغطة: ${CARD_COPY}${encodeURIComponent(code)}\n` +
          `١) حمّل تطبيق «كيدورا»:\n` +
-         `آيفون: https://apps.apple.com/sa/app/id6819013599\n` +
-         `أندرويد: https://play.google.com/store/apps/details?id=sa.answer.wanas\n` +
+         `آيفون: ${CARD_IOS}\n` +
+         `أندرويد: ${CARD_PLAY}\n` +
          `٢) اختر «حساب جديد» وسجّل برقم جوالك.\n` +
-         `٣) أدخل الرمز أعلاه.\n` +
+         `٣) الصق الرمز أو اكتبه.\n` +
          `الرمز خاص بطفلك، لا تشاركه خارج العائلة.`;
 }
 const waTo = (ph, text) => 'https://wa.me/' + ph + '?text=' + encodeURIComponent(text);
@@ -2528,43 +2530,60 @@ const waTo = (ph, text) => 'https://wa.me/' + ph + '?text=' + encodeURIComponent
 const SENT_KEY = 'kidora.cardsSent';
 function sentMarks(){ try { return JSON.parse(localStorage.getItem(SENT_KEY) || '{}') || {}; } catch(_){ return {}; } }
 function markSent(code){ try { const m = sentMarks(); m[code] = Date.now(); localStorage.setItem(SENT_KEY, JSON.stringify(m)); } catch(_){} }
-// copy the card image too, so it can be pasted into the chat WhatsApp opens
-function copyCardImage(file){
-  try { if(file && navigator.clipboard && window.ClipboardItem) navigator.clipboard.write([new ClipboardItem({ 'image/png': file })]).catch(()=>{}); } catch(_){}
-}
-// a plain (stored) ZIP, so a computer gets one download instead of dozens
-const CRC_T = (() => { const t = new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320 ^ (c>>>1) : c>>>1; t[n]=c>>>0; } return t; })();
-function crc32(u8){ let c = 0xFFFFFFFF; for(let i=0;i<u8.length;i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
-async function zipFiles(files, name){
-  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
-  for(const f of files){
-    const data = new Uint8Array(await f.arrayBuffer()), nm = enc.encode(f.name), crc = crc32(data);
-    const h = new DataView(new ArrayBuffer(30));
-    h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint32(14,crc,true);
-    h.setUint32(18,data.length,true); h.setUint32(22,data.length,true); h.setUint16(26,nm.length,true);
-    const c = new DataView(new ArrayBuffer(46));
-    c.setUint32(0,0x02014b50,true); c.setUint16(4,20,true); c.setUint16(6,20,true); c.setUint16(8,0x0800,true); c.setUint32(16,crc,true);
-    c.setUint32(20,data.length,true); c.setUint32(24,data.length,true); c.setUint16(28,nm.length,true); c.setUint32(42,off,true);
-    parts.push(h, nm, data); central.push(c, nm); off += 30 + nm.length + data.length;
+// save one card or many: always a single PDF (one page per child); phones get the share sheet
+async function saveCards(canvases){
+  if(!canvases.length) return;
+  const file = canvases.length === 1 ? await cardFile(canvases[0], canvases[0].cardMeta.code) : await cardsPdf(canvases, 'kidora-cards.pdf');
+  if(canShareFiles([file])){
+    try { await navigator.share({ files:[file], title:'بطاقات أولياء الأمور' }); return; }
+    catch(e){ if(e && e.name === 'AbortError') return; }      // cancelled by the user
   }
-  const size = central.reduce((s,x) => s + x.byteLength, 0), end = new DataView(new ArrayBuffer(22));
-  end.setUint32(0,0x06054b50,true); end.setUint16(8,files.length,true); end.setUint16(10,files.length,true);
-  end.setUint32(12,size,true); end.setUint32(16,off,true);
-  return new File([...parts, ...central, end], name, { type:'application/zip' });
+  downloadFile(file);
+  toast(canvases.length === 1 ? 'حُفظت البطاقة (PDF)' : `حُفظت ${canvases.length} بطاقة في ملف PDF واحد`);
 }
-// save several cards: phones get the share sheet («حفظ الصور»), computers one ZIP
-async function saveCards(files){
-  if(!files.length) return;
-  if(canShareFiles(files)){ try { await navigator.share({ files, title:'بطاقات أولياء الأمور' }); } catch(_){} return; }
-  if(files.length === 1){ downloadFile(files[0]); toast('حُفظت الصورة'); return; }
-  downloadFile(await zipFiles(files, 'kidora-cards.zip'));
-  toast(`حُفظت ${files.length} بطاقة في ملف واحد`);
+// A small PDF writer: each card is one page (the drawing as a JPEG), with real links on the
+// «copy code», App Store and Google Play buttons, and the code as hidden text so it can be selected.
+const PDF_W = 360, PDF_H = 640;                      // points; the card is 1080×1920 px
+// encoded once per card, so building the PDF on a tap is instant (sharing needs the tap to be fresh)
+async function cardJpeg(cv){
+  if(!cv._jpg) cv._jpg = new Uint8Array(await (await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.88))).arrayBuffer());
+  return cv._jpg;
 }
-const cardFileName = code => 'kidora-' + String(code).replace(/[^A-Za-z0-9-]/g,'') + '.png';
-async function cardFile(cv, code){
-  const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
-  return blob ? new File([blob], cardFileName(code), { type:'image/png' }) : null;
+async function cardsPdf(canvases, name){
+  const enc = new TextEncoder(), parts = [], offs = [];
+  let len = 0;
+  const put = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
+  const obj = (n, body) => { offs[n] = len; put(n + ' 0 obj\n'); (Array.isArray(body) ? body : [body]).forEach(put); put('\nendobj\n'); };
+  const k = PDF_W / CARD_W, pdfEsc = s => String(s).replace(/[\\()]/g, m => '\\' + m);
+  const rect = r => [r.x*k, PDF_H - (r.y + r.h)*k, (r.x + r.w)*k, PDF_H - r.y*k].map(v => v.toFixed(2)).join(' ');
+  put('%PDF-1.4\n'); put(new Uint8Array([37,226,227,207,211,10]));
+  const pages = [];
+  let n = 4;                                         // 1 catalog, 2 pages, 3 font
+  for(const cv of canvases){
+    const jpg = await cardJpeg(cv);
+    const m = cv.cardMeta || { links: [], code: '' };
+    const page = n, content = n + 1, img = n + 2, annots = m.links.map((_, i) => n + 3 + i);
+    n += 3 + annots.length;
+    const cr = m.codeRect, fs = 24;
+    const text = cr && m.code ? `BT 3 Tr /F1 ${fs} Tf ${(cr.x*k + (cr.w*k - m.code.length*fs*0.6)/2).toFixed(2)} ${(PDF_H - (cr.y + cr.h*0.72)*k).toFixed(2)} Td (${pdfEsc(m.code)}) Tj ET` : '';
+    const stream = `q ${PDF_W} 0 0 ${PDF_H} 0 0 cm /Im0 Do Q\n${text}`;
+    pages.push(page);
+    obj(page, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PDF_W} ${PDF_H}] /Contents ${content} 0 R ` +
+              `/Resources << /XObject << /Im0 ${img} 0 R >> /Font << /F1 3 0 R >> >> /Annots [${annots.map(a => a + ' 0 R').join(' ')}] >>`);
+    obj(content, `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+    obj(img, [`<< /Type /XObject /Subtype /Image /Width ${cv.width} /Height ${cv.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpg.length} >>\nstream\n`, jpg, '\nendstream']);
+    m.links.forEach((l, i) => obj(annots[i], `<< /Type /Annot /Subtype /Link /Rect [${rect(l)}] /Border [0 0 0] /A << /S /URI /URI (${pdfEsc(l.url)}) >> >>`));
+  }
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, `<< /Type /Pages /Kids [${pages.map(p => p + ' 0 R').join(' ')}] /Count ${pages.length} >>`);
+  obj(3, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  const xref = len;
+  put(`xref\n0 ${n}\n0000000000 65535 f \n` + offs.slice(1, n).map(o => String(o).padStart(10, '0') + ' 00000 n \n').join(''));
+  put(`trailer\n<< /Size ${n} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new File(parts, name, { type:'application/pdf' });
 }
+const cardFileName = code => 'kidora-' + String(code).replace(/[^A-Za-z0-9-]/g,'') + '.pdf';
+const cardFile = (cv, code) => cardsPdf([cv], cardFileName(code));
 function downloadFile(file){
   const url = URL.createObjectURL(file);
   const a = document.createElement('a');
@@ -2587,8 +2606,8 @@ async function bulkCardsSheet(){
   const opts = S.classes.map(c => `<option value="${c.id}">فصل ${esc(c.name)}</option>`).join('');
   openSheet(`
     <h3>بطاقات من لم يسجّل</h3>
-    <p class="help">بطاقة لكل طفل لم يسجّل وليّ أمره بعد. «إرسال» يفتح واتساب على رقم ولي الأمر والرسالة جاهزة فيها الرمز (والبطاقة منسوخة، الصقيها في المحادثة).
-    أو حدّدي بطاقات واحفظيها مرة واحدة.</p>
+    <p class="help">بطاقة لكل طفل لم يسجّل وليّ أمره بعد. «إرسال» يفتح واتساب على رقم ولي الأمر والرسالة جاهزة (فيها الرمز وروابط التحميل).
+    أو حدّدي بطاقات واحفظيها في ملف PDF واحد — فيه زر «نسخ الرمز» وروابط App Store وGoogle Play.</p>
     <div class="field"><label for="bcl">الفصل</label>
       <select id="bcl"><option value="">جميع الفصول</option>${opts}</select></div>
     <div id="bmsg"></div>
@@ -2606,7 +2625,7 @@ async function bulkCardsSheet(){
   const sel = () => items.filter(x => x.on);
   const sync = () => {
     const n = sel().length;
-    $('#bsave').textContent = n ? `حفظ المحدد (${n})` : 'حفظ الكل';
+    $('#bsave').textContent = n ? `حفظ المحدد PDF (${n})` : 'حفظ الكل PDF';
     $('#bpick').textContent = n === items.length ? 'إلغاء التحديد' : 'تحديد الكل';
   };
   const draw = async () => {
@@ -2623,9 +2642,8 @@ async function bulkCardsSheet(){
       if(my !== run || !panel.isConnected) return;
       const cv = await makeCardCanvas(c, inv.code);
       if(my !== run) return;
-      const file = await cardFile(cv, inv.code);
-      if(!file) continue;
-      const it = { file, on:false };
+      await cardJpeg(cv);
+      const it = { cv, on:false };
       const box = el(`<div class="cardthumb">
         <button class="pick" aria-pressed="false" aria-label="تحديد بطاقة ${esc(c.full_name)}"><span class="tick">✓</span></button>
         <span class="nm2">${esc(first(c.full_name))}</span>
@@ -2638,10 +2656,10 @@ async function bulkCardsSheet(){
       pick.onclick = () => { it.on = !it.on; pick.setAttribute('aria-pressed', it.on ? 'true' : 'false'); sync(); };
       const snd = box.querySelector('.snd');
       if(inv.phone) snd.addEventListener('click', () => {
-        copyCardImage(file); markSent(inv.code);
+        markSent(inv.code);
         snd.classList.add('done'); snd.textContent = '✓ أُرسلت ' + showPhone(inv.phone);
       });
-      else snd.onclick = () => saveCards([file]);
+      else snd.onclick = () => saveCards([cv]);
       grid.appendChild(box); items.push(it);
       if(items.length === 1){ $('#bbar').style.display = ''; }
       sync();
@@ -2655,9 +2673,9 @@ async function bulkCardsSheet(){
     sync();
   };
   $('#bsave').onclick = async (e) => {
-    const files = (sel().length ? sel() : items).map(x => x.file);
+    const cvs = (sel().length ? sel() : items).map(x => x.cv);
     e.target.disabled = true;
-    try { await saveCards(files); } finally { e.target.disabled = false; }
+    try { await saveCards(cvs); } finally { e.target.disabled = false; }
   };
   draw();
 }
@@ -2921,8 +2939,11 @@ function importSheet(){
 }
 
 
-/* ================= parent card: one image the director sends on WhatsApp ================= */
+/* ================= parent card: a one-page PDF the director sends on WhatsApp ================= */
 const CARD_W = 1080, CARD_H = 1920;
+const CARD_IOS  = 'https://apps.apple.com/sa/app/id6819013599';
+const CARD_PLAY = 'https://play.google.com/store/apps/details?id=sa.answer.wanas';
+const CARD_COPY = 'https://kidora.answer.sa/c#';     // page with a one-tap «copy code» button
 
 function cardPalette(){
   const t = (S.kg && S.kg.theme) || {};
@@ -2988,34 +3009,54 @@ function drawParentCard(ctx, d){
   ctx.fillText(d.className ? 'فصل ' + d.className : 'تابع يوم طفلك أولًا بأول', R, 376);
 
   // the code — the one thing that must be unmistakable
-  const bx = 90, by = 430, bw = CARD_W-180, bh = 260;
+  const links = [];
+  const bx = 90, by = 420, bw = CARD_W-180, bh = 340;
   ctx.fillStyle = '#FDE9F1';
   roundRect(ctx,bx,by,bw,bh,36); ctx.fill();
 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#A5124F';
   ctx.font = '600 30px "IBM Plex Sans Arabic", sans-serif';
-  ctx.fillText('رمز الدخول', CARD_W/2, by + 74);
+  ctx.fillText('رمز الدخول', CARD_W/2, by + 70);
 
   ctx.fillStyle = '#241820';
   ctx.font = '700 96px "IBM Plex Mono", ui-monospace, monospace';
-  ctx.fillText(d.code, CARD_W/2, by + 186);
+  ctx.fillText(d.code, CARD_W/2, by + 176);
+  const codeRect = { x: bx + 40, y: by + 100, w: bw - 80, h: 100 };
 
-  // the link
+  // «copy the code» button (a link in the PDF)
+  const cw = 360, ch = 84, cx = (CARD_W - cw)/2, cy = by + 222;
+  ctx.fillStyle = P.pink;
+  roundRect(ctx,cx,cy,cw,ch,42); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = '700 36px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText('نسخ الرمز', CARD_W/2, cy + 56);
+  links.push({ x:cx, y:cy, w:cw, h:ch, url: CARD_COPY + encodeURIComponent(d.code) });
+
+  // store buttons
   ctx.fillStyle = '#0E6E99';
   ctx.font = '700 44px "IBM Plex Sans Arabic", sans-serif';
-  ctx.fillText('حمّل تطبيق «كيدورا»', CARD_W/2, by + bh + 92);
-  ctx.fillStyle = '#6E6069';
-  ctx.font = '400 28px "IBM Plex Sans Arabic", sans-serif';
-  ctx.fillText('من App Store أو Google Play — أو افتح ' + d.host, CARD_W/2, by + bh + 140);
+  ctx.fillText('حمّل تطبيق «كيدورا»', CARD_W/2, by + bh + 88);
+  const sw = 420, sh = 124, sy = by + bh + 122, gapS = 60;
+  [[CARD_W/2 + gapS/2, 'آيفون — حمّل من', 'App Store', CARD_IOS],
+   [CARD_W/2 - gapS/2 - sw, 'أندرويد — حمّل من', 'Google Play', CARD_PLAY]].forEach(([x, top, name, url]) => {
+    ctx.fillStyle = '#111';
+    roundRect(ctx,x,sy,sw,sh,28); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.8)';
+    ctx.font = '400 26px "IBM Plex Sans Arabic", sans-serif';
+    ctx.fillText(top, x + sw/2, sy + 46);
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 44px "IBM Plex Sans Arabic", sans-serif';
+    ctx.fillText(name, x + sw/2, sy + 98);
+    links.push({ x, y:sy, w:sw, h:sh, url });
+  });
 
   // steps
   ctx.textAlign = 'right';
-  let y = 880;
+  let y = sy + sh + 74;
   const steps = [
-    ['حمّل تطبيق «كيدورا»',
-     'آيفون: من App Store\nأندرويد: من Google Play'],
-    ['اختر «حساب جديد» وسجّل برقم جوالك', 'ثم أدخل رمز الدخول المكتوب أعلاه'],
+    ['حمّل التطبيق من الزر المناسب لجوالك', ''],
+    ['اختر «حساب جديد» وسجّل برقم جوالك', 'ثم الصق الرمز (أو اكتبه) عندما يُطلب'],
     ['فعّل الإشعارات عندما يطلبها', 'بدونها لن يصلك تنبيه وصول طفلك']
   ];
   steps.forEach(([title, sub], i) => {
@@ -3042,7 +3083,7 @@ function drawParentCard(ctx, d){
         });
       });
     }
-    y += 52;
+    y += 40;
   });
 
   // the reassurance a parent actually wants
@@ -3060,18 +3101,19 @@ function drawParentCard(ctx, d){
   ctx.font = '400 26px "IBM Plex Sans Arabic", sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('الرمز خاص بطفلك — لا تشاركه خارج العائلة', CARD_W/2, CARD_H - 96);
+  return { links, codeRect };
 }
 
 async function parentCardSheet(child, inv){
   const code = inv.code;
   openSheet(`
     <h3>بطاقة ولي الأمر</h3>
-    <p class="help">صورة جاهزة لإرسالها لأهل ${esc(first(child.full_name))} على واتساب — فيها الرمز وطريقة التثبيت.</p>
+    <p class="help">ملف PDF جاهز لإرساله لأهل ${esc(first(child.full_name))} على واتساب — فيه الرمز وزر «نسخ الرمز» وروابط App Store وGoogle Play.</p>
     <div id="cardwrap" style="display:flex;justify-content:center"><div class="spin"></div></div>
     <div id="cardmsg"></div>
     ${inv.phone ? `<a class="btn" id="cardwa" target="_blank" rel="noopener" style="text-align:center;text-decoration:none"
         href="${esc(waTo(inv.phone, cardMessage(child, code)))}">📲 إرسال إلى ${esc(showPhone(inv.phone))}</a>` : ''}
-    <button class="btn ${inv.phone ? 'soft sm' : ''}" id="cardsave">حفظ الصورة</button>
+    <button class="btn ${inv.phone ? 'soft sm' : ''}" id="cardsave">حفظ PDF</button>
     <button class="btn soft sm" id="cardshare" style="display:none">مشاركة</button>
     <button class="btn soft sm" id="cardx">إغلاق</button>
   `);
@@ -3083,11 +3125,11 @@ async function parentCardSheet(child, inv){
   if(wrap){ wrap.innerHTML = ''; wrap.appendChild(cv); }
   const file = await cardFile(cv, code);
   const wa = panel.querySelector('#cardwa');
-  if(wa) wa.addEventListener('click', () => { copyCardImage(file); markSent(code); });
+  if(wa) wa.addEventListener('click', () => markSent(code));
 
   panel.querySelector('#cardsave').onclick = () => {
-    if(!file){ panel.querySelector('#cardmsg').innerHTML = '<div class="err">تعذّر إنشاء الصورة.</div>'; return; }
-    downloadFile(file); toast('حُفظت الصورة');
+    if(!file){ panel.querySelector('#cardmsg').innerHTML = '<div class="err">تعذّر إنشاء الملف.</div>'; return; }
+    downloadFile(file); toast('حُفظت البطاقة (PDF)');
   };
   // on a phone, sharing straight to WhatsApp beats downloading
   const shareBtn = panel.querySelector('#cardshare');
@@ -3118,7 +3160,7 @@ function childSheet(c){
       <div class="codebox"><b>${esc(inv.code)}</b><button id="cp">نسخ</button></div></div>` : ''}
     ${inv ? `<div class="field"><label for="eph">جوال ولي الأمر (لإرسال البطاقة)</label>
       <input id="eph" inputmode="tel" placeholder="05XXXXXXXX" value="${esc(showPhone(inv.phone))}"></div>` : ''}
-    ${inv ? '<button class="btn blue sm" id="ecard">بطاقة ولي الأمر (صورة)</button>' : ''}
+    ${inv ? '<button class="btn blue sm" id="ecard">بطاقة ولي الأمر (PDF)</button>' : ''}
     <div id="gbox"><p class="help">جارٍ تحميل أولياء الأمور…</p></div>
     <div id="emsg"></div>
     <button class="btn" id="esave">حفظ</button>

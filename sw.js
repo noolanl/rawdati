@@ -6,11 +6,12 @@ self.addEventListener('activate', e => e.waitUntil(
 
 // offline app shell: always try the network first (so updates show at once),
 // fall back to the last copy when the connection drops. API calls are never cached.
-const SHELL = 'kidora-shell-v1';
+const SHELL = 'kidora-shell-v2';
 function cacheable(req){
   if (req.method !== 'GET') return false;
   const u = new URL(req.url);
-  if (u.origin === self.location.origin) return req.mode === 'navigate' || /\.(png|json|css|woff2|js)$/.test(u.pathname);
+  // only the app itself is the shell — other pages (e.g. /c, the code-copy page) must not replace it
+  if (u.origin === self.location.origin) return req.mode === 'navigate' ? /^\/(index\.html)?$/.test(u.pathname) : /\.(png|json|css|woff2|js)$/.test(u.pathname);
   return /^https:\/\/(cdn\.jsdelivr\.net\/npm\/@supabase|fonts\.(googleapis|gstatic)\.com)/.test(req.url);
 }
 self.addEventListener('fetch', event => {
