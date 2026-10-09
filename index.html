@@ -309,6 +309,11 @@ body:has(.demobar) .topbar{position:relative;padding-top:12px !important}
 .consentbox input{width:20px;height:20px;flex:none;margin-top:2px;accent-color:var(--green)}
 .pickup-note{display:flex;align-items:center;gap:10px;background:var(--blue-soft);border-radius:var(--r-md);padding:12px 15px;font-size:13.5px;color:var(--blue-ink)}
 .pickup-note .t{flex:1}
+.pickup-note .pinrow{display:block;margin-top:4px}
+.pickup-note .pin{font-size:17px;letter-spacing:2px;background:#fff;border-radius:8px;padding:1px 8px}
+.pickup-note .pkbtns{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.pickup-note .pkwa{color:var(--blue-ink);font-weight:700;font-size:13px;white-space:nowrap}
+.pinbig{font-size:40px;font-weight:800;letter-spacing:10px;text-align:center;background:var(--sunken);border-radius:16px;padding:10px 0;color:var(--ink)}
 .pickup-note button{border:none;background:transparent;color:var(--blue-ink);font-weight:700;cursor:pointer;font-size:13px;text-decoration:underline;font-family:inherit}
 
 /* ===== notification banner ===== */
@@ -468,7 +473,7 @@ function makeDemoClient(role){
       { id:uid(), kindergarten_id:KG, class_id:'c2', author_id:'t', kind:'activity', body:'زرعنا بذور الفاصوليا في أكواب صغيرة، وكل طفل كتب اسمه على كوبه 🌱', photo_paths:['demo/p3'], created_at:ago(60*26) }
     ],
     absences: [ { id:uid(), kindergarten_id:KG, child_id:'k5', day:day(), reason:'sick', note:'حرارة خفيفة', created_by:'p', created_at:ago(150) } ],
-    pickups: [ { id:uid(), kindergarten_id:KG, child_id:'k3', day:day(), person_name:'خالها محمد', relation:'خال', phone:'', created_by:'p', created_at:ago(120) } ],
+    pickups: [ { id:uid(), kindergarten_id:KG, child_id:'k3', day:day(), person_name:'خالها محمد', relation:'خال', phone:'', created_by:'p', created_at:ago(120), pin:'4827' } ],
     bus_logs: [ { id:uid(), kindergarten_id:KG, child_id:'k1', day:day(), trip:'am', boarded_at:at(7,5), arrived_at:at(7,40) },
                 { id:uid(), kindergarten_id:KG, child_id:'k3', day:day(), trip:'am', boarded_at:at(7,10), arrived_at:at(7,34) } ],
     daily_updates: [ { child_id:'k1', day:day(), meal:'all', nap:'slept', mood:'happy', bathroom:null, note:'أكلت وجبتها كاملة وشاركت في الرسم بحماس.', photo_paths:['demo/p4'], updated_at:ago(30) } ],
@@ -595,7 +600,9 @@ function makeDemoClient(role){
     },
     cancel_absence: ({ p_child, p_day }) => { T.absences = T.absences.filter(a => !(a.child_id === p_child && a.day === p_day)); return null; },
     set_pickup: ({ p_child, p_day, p_name, p_relation, p_phone }) => {
-      const r = { id:uid(), kindergarten_id:KG, child_id:p_child, day:p_day, person_name:p_name, relation:p_relation||null, phone:p_phone||null, created_by:ME, created_at:new Date().toISOString() };
+      const old = T.pickups.find(x => x.child_id === p_child && x.day === p_day);
+      const pin = old && old.pin && old.person_name === p_name ? old.pin : String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+      const r = { id:uid(), kindergarten_id:KG, child_id:p_child, day:p_day, person_name:p_name, relation:p_relation||null, phone:p_phone||null, created_by:ME, created_at:new Date().toISOString(), pin };
       T.pickups = T.pickups.filter(x => !(x.child_id === p_child && x.day === p_day)); T.pickups.push(r); return clone(r);
     },
     clear_pickup: ({ p_child, p_day }) => { T.pickups = T.pickups.filter(x => !(x.child_id === p_child && x.day === p_day)); return null; },
@@ -1210,7 +1217,7 @@ function parentReports(classId){
                text: 'غياب ' + (a.day === today() ? 'اليوم' : fmtDay(new Date(a.day + 'T12:00:00'))) + ' · ' + (REASONS[a.reason] || a.reason || '') + (a.note ? ' · ' + a.note : '') }); });
   Object.values(S.pickups || {}).forEach(p => { const c = kids.get(p.child_id); if(c && p.day >= today())
     out.push({ id:'p:' + p.id, kind:'pickup', child:c, day:p.day, at:p.created_at,
-               text: 'يستلمه ' + (p.day === today() ? 'اليوم' : fmtDay(new Date(p.day + 'T12:00:00'))) + ': ' + p.person_name + (p.relation ? ' (' + p.relation + ')' : '') }); });
+               text: 'يستلمه ' + (p.day === today() ? 'اليوم' : fmtDay(new Date(p.day + 'T12:00:00'))) + ': ' + p.person_name + (p.relation ? ' (' + p.relation + ')' : '') + (p.pin ? ' · الرمز ' + p.pin : '') }); });
   (S.notes || []).forEach(n => { const c = kids.get(n.child_id); if(c)
     out.push({ id:'n:' + n.id, noteId:n.id, read:!!n.read_at, kind:'note', child:c, at:n.created_at,
                text: n.body + ' · ' + fmtWhen(n.created_at) }); });
@@ -1340,7 +1347,7 @@ function viewRoster(){
                 : 'لم يصل بعد';
     const pk = pickupOf(k.id);
     const label2 = (S.pending.has(k.id) ? '⏳ بانتظار الإرسال · ' : '')
-                 + (pk ? label + ' · يستلمه: ' + pk.person_name : label);
+                 + (pk ? label + ' · يستلمه: ' + pk.person_name + (pk.pin ? ' · الرمز ' + pk.pin : '') : label);
     const b = el(`<button class="kid ${st.k==='out' ? (ab?'absent':'') : st.k}">
       <span class="face">${esc(initial(k.full_name))}</span>
       <span class="nm"><b>${esc(k.full_name)}${S.linked.has(k.id)?' <span class="bell" title="ولي الأمر مشترك في الإشعارات">🔔</span>':''}${S.noPhoto.has(k.id)?' <span class="bell" title="ولي الأمر لا يوافق على نشر صور طفله">🚫📷</span>':''}</b><span>${label2}</span></span>
@@ -1348,6 +1355,19 @@ function viewRoster(){
     </button>`);
     b.onclick = async () => {
       if(previewBlock()) return;
+      if(statusOf(k.id).k === 'in' && pk && pk.pin && !b.dataset.ok){
+        openSheet(`
+          <h3>تسليم ${esc(first(k.full_name))}</h3>
+          <p>المستلم المفوّض اليوم: <b>${esc(pk.person_name)}</b>${pk.relation ? ' · ' + esc(pk.relation) : ''}</p>
+          <p class="help" style="margin:0">اطلبي منه رمز الاستلام وتأكدي أنه:</p>
+          <div class="pinbig" dir="ltr">${esc(pk.pin)}</div>
+          <button class="btn" id="pkok">الرمز صحيح — سجّلي المغادرة</button>
+          <button class="btn soft sm" id="pkno">إلغاء</button>`);
+        sheetPanel.querySelector('#pkno').onclick = closeSheet;
+        sheetPanel.querySelector('#pkok').onclick = () => { closeSheet(); b.dataset.ok = '1'; b.click(); };
+        return;
+      }
+      delete b.dataset.ok;
       b.classList.add('busy');
       const want = nextState(statusOf(k.id).k);
       let failedOffline = false;
@@ -1973,10 +1993,11 @@ function viewParent(){
     const pk = pickupOf(c.id, today());
     if(pk){
       const n = el(`<div class="pickup-note">
-        <span class="t">يستلم ${esc(first(c.full_name))} اليوم: <b>${esc(pk.person_name)}</b>${pk.relation?' · '+esc(pk.relation):''}${pk.phone?' · '+esc(pk.phone):''}</span>
-        <button type="button">إلغاء</button>
+        <span class="t">يستلم ${esc(first(c.full_name))} اليوم: <b>${esc(pk.person_name)}</b>${pk.relation?' · '+esc(pk.relation):''}${pk.phone?' · '+esc(pk.phone):''}
+          ${pk.pin ? `<span class="pinrow">رمز الاستلام <b class="pin" dir="ltr">${esc(pk.pin)}</b> — أعطه للمستلم ليخبر به المعلمة</span>` : ''}</span>
+        <span class="pkbtns">${pk.pin ? `<a class="pkwa" target="_blank" rel="noopener" href="${esc(pickupWaUrl(c, pk))}">إرسال الرمز</a>` : ''}<button type="button" class="pkx">إلغاء</button></span>
       </div>`);
-      n.querySelector('button').onclick = async () => {
+      n.querySelector('.pkx').onclick = async () => {
         const r = await safe(sb.rpc('clear_pickup', { p_child: c.id, p_day: today() }));
         if(!r){ toast('تعذّر الإلغاء'); return; }
         delete S.pickups[c.id + '|' + today()];
@@ -2108,11 +2129,18 @@ function noteSheet(child){
   };
 }
 
+function pickupWaUrl(child, pk){
+  const msg = `رمز استلام ${first(child.full_name)} اليوم من ${brandName()}: ${pk.pin}\n` +
+              `أخبر المعلمة بهذا الرمز عند الاستلام.`;
+  const ph = String(pk.phone || '').replace(/\D/g, '');
+  const intl = /^05\d{8}$/.test(ph) ? '966' + ph.slice(1) : /^9665\d{8}$/.test(ph) ? ph : '';
+  return 'https://wa.me/' + intl + '?text=' + encodeURIComponent(msg);
+}
 function pickupSheet(child){
   const existing = pickupOf(child.id, today());
   openSheet(`
     <h3>من سيستلم ${esc(first(child.full_name))}؟</h3>
-    <p class="help">يظهر للمعلمة عند وقت الخروج اليوم فقط.</p>
+    <p class="help">يظهر للمعلمة عند وقت الخروج اليوم فقط، مع <b>رمز استلام من ٤ أرقام</b> تعطيه للمستلم ليخبر به المعلمة.</p>
     <div class="field"><label for="pn">اسم المستلم</label><input id="pn" value="${existing?esc(existing.person_name):''}" placeholder="الاسم الكامل"></div>
     <div class="field"><label for="pr">صلة القرابة</label><input id="pr" value="${existing&&existing.relation?esc(existing.relation):''}" placeholder="مثال: الخال"></div>
     <div class="field"><label for="pp">رقم الجوال</label><input id="pp" inputmode="tel" value="${existing&&existing.phone?esc(existing.phone):''}" placeholder="05XXXXXXXX"></div>
