@@ -313,6 +313,7 @@ body:has(.demobar) .topbar{position:relative;padding-top:12px !important}
 .pickup-note .pin{font-size:17px;letter-spacing:2px;background:#fff;border-radius:8px;padding:1px 8px}
 .pickup-note .pkbtns{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
 .pickup-note .pkwa{color:var(--blue-ink);font-weight:700;font-size:13px;white-space:nowrap}
+.policyup{border:1.5px solid var(--blue);display:flex;flex-direction:column;gap:10px}
 .pinbig{font-size:40px;font-weight:800;letter-spacing:10px;text-align:center;background:var(--sunken);border-radius:16px;padding:10px 0;color:var(--ink)}
 .pickup-note button{border:none;background:transparent;color:var(--blue-ink);font-weight:700;cursor:pointer;font-size:13px;text-decoration:underline;font-family:inherit}
 
@@ -552,7 +553,7 @@ function makeDemoClient(role){
   const RPC = {
     tenant_public: () => [T.kindergartens[0]],
     is_owner: () => false,
-    my_consent: () => MY_KIDS.map(id => ({ child_id:id, consent_at:ago(9000), photo_consent:true, policy_version:'2026-10-04' })),
+    my_consent: () => MY_KIDS.map(id => ({ child_id:id, consent_at:ago(9000), photo_consent:true, policy_version:'2026-10-09' })),
     no_photo_children: () => [],
     children_with_push: () => ['k1','k3','k4','k7'],
     my_child_updates: () => T.daily_updates.filter(u => MY_KIDS.includes(u.child_id)).map(upd),
@@ -709,7 +710,7 @@ const S = {
   photoConsent:true, noPhoto:new Set()
 };
 
-const POLICY_VERSION = '2026-09-01';
+const POLICY_VERSION = '2026-10-09';
 const POLICY_URL = 'https://answer.sa/kidora/privacy';
 
 const el = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
@@ -1064,6 +1065,8 @@ async function loadCore(){
   S.isOwner = !!(ow && ow.data === true);
   const gr = (g && g.data) || [];
   S.consentGiven = gr.some(x => x.consent_at);
+  // oldest policy version this parent agreed to (re-consent needed after a material change)
+  S.policySeen = gr.filter(x => x.consent_at).map(x => x.policy_version || '').sort()[0] || '';
   S.photoConsent = gr.length ? gr.every(x => x.photo_consent === true) : false;   // opt-in: no answer = no photos
   if(isStaff0) S.noPhoto = new Set(((np && np.data) || []).map(r => r.child_id));
   if(!S.activeClass && S.classes.length) S.activeClass = S.classes[0].id;
@@ -1906,8 +1909,24 @@ function drSummary(u){
 }
 
 /* ================= parent ================= */
+function policyCard(){
+  if(!S.consentGiven || !S.policySeen || S.policySeen >= POLICY_VERSION || S.preview) return null;
+  const c = el(`<div class="card policyup"><h3>تحديث سياسة الخصوصية</h3>
+    <p class="help" style="margin:0">أضفنا: <b>رسائلك للروضة</b> (اختيارية، تُحذف بعد ١٨٠ يومًا)، و<b>رمز الاستلام</b> عند تفويض شخص آخر، و<b>تقارير أعطال تقنية</b> بدون بيانات طفلك.
+    وأصبحت الصور تُحذف تلقائيًا بعد مدة الحفظ، ونزيل منها موقع التصوير قبل رفعها. اختيارك لنشر الصور يبقى كما هو.</p>
+    <div class="actions2"><button class="btn sm" id="pok">موافق</button>
+    <a class="btn soft sm" href="${POLICY_URL}" target="_blank" rel="noopener">اقرأ السياسة</a></div></div>`);
+  c.querySelector('#pok').onclick = async (e) => {
+    e.target.disabled = true;
+    const r = await safe(sb.rpc('set_consent', { p_photo: null, p_version: POLICY_VERSION }));
+    if(!r){ e.target.disabled = false; toast('تعذّر الحفظ'); return; }
+    S.policySeen = POLICY_VERSION; toast('شكرًا — تم تسجيل موافقتك'); render();
+  };
+  return c;
+}
 function viewParent(){
   const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
+  { const pc = policyCard(); if(pc) wrap.appendChild(pc); }
   if(!S.myChildren.length){
     wrap.appendChild(el('<div class="empty">لم يتم ربط حسابك بطفل بعد. أدخل رمز طفلك من الروضة.</div>'));
     const add0 = el('<button class="btn">إدخال رمز الطفل</button>');
