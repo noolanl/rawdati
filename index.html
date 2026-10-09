@@ -2516,8 +2516,9 @@ const showPhone = ph => !ph ? '' : /^9665\d{8}$/.test(ph) ? '0' + ph.slice(3) : 
 function cardMessage(child, code){
   return `السلام عليكم، هذه بطاقة ولي أمر ${first(child.full_name)} في ${brandName()}.\n` +
          `رمز التسجيل: ${code}\n` +
-         `١) حمّل تطبيق «كيدورا»: https://apps.apple.com/sa/app/id6819013599\n` +
-         `   (أندرويد: افتح kidora.answer.sa)\n` +
+         `١) حمّل تطبيق «كيدورا»:\n` +
+         `آيفون: https://apps.apple.com/sa/app/id6819013599\n` +
+         `أندرويد: https://play.google.com/store/apps/details?id=sa.answer.wanas\n` +
          `٢) اختر «حساب جديد» وسجّل برقم جوالك.\n` +
          `٣) أدخل الرمز أعلاه.\n` +
          `الرمز خاص بطفلك، لا تشاركه خارج العائلة.`;
@@ -3006,14 +3007,14 @@ function drawParentCard(ctx, d){
   ctx.fillText('حمّل تطبيق «كيدورا»', CARD_W/2, by + bh + 92);
   ctx.fillStyle = '#6E6069';
   ctx.font = '400 28px "IBM Plex Sans Arabic", sans-serif';
-  ctx.fillText('من App Store — أو افتح ' + d.host + ' من المتصفح', CARD_W/2, by + bh + 140);
+  ctx.fillText('من App Store أو Google Play — أو افتح ' + d.host, CARD_W/2, by + bh + 140);
 
   // steps
   ctx.textAlign = 'right';
   let y = 880;
   const steps = [
-    ['حمّل تطبيق «كيدورا» من App Store',
-     'أندرويد: افتح ' + d.host + ' من المتصفح\n(تطبيق Google Play قريبًا)'],
+    ['حمّل تطبيق «كيدورا»',
+     'آيفون: من App Store\nأندرويد: من Google Play'],
     ['اختر «حساب جديد» وسجّل برقم جوالك', 'ثم أدخل رمز الدخول المكتوب أعلاه'],
     ['فعّل الإشعارات عندما يطلبها', 'بدونها لن يصلك تنبيه وصول طفلك']
   ];
