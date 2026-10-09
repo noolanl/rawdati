@@ -391,9 +391,17 @@ html.native img{-webkit-user-drag:none;-webkit-touch-callout:none}
 main{padding-bottom:max(100px, calc(84px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom))))}
 @media (prefers-reduced-motion:reduce){button:active,.row:active,.chip:active,.btn:active,.kid:active{transform:none}}
 .cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:6px 0 12px}
-.cardthumb{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px;color:var(--ink2,#6E6069);text-align:center}
-.cardthumb canvas{width:100%;height:auto;border-radius:12px;box-shadow:var(--shadow-sm)}
-.cardthumb:focus-visible canvas{outline:3px solid var(--pink)}
+.cardthumb{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink2,#6E6069);text-align:center}
+.cardthumb .pick{all:unset;cursor:pointer;position:relative;display:block;border-radius:12px}
+.cardthumb canvas{display:block;width:100%;height:auto;border-radius:12px;box-shadow:var(--shadow-sm);outline:3px solid transparent;transition:outline-color .15s}
+.cardthumb .pick[aria-pressed="true"] canvas{outline-color:var(--pink)}
+.cardthumb .pick:focus-visible canvas{outline-color:var(--blue,#2A8BD8)}
+.cardthumb .tick{position:absolute;top:8px;left:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid #cfc3ca;display:grid;place-items:center;font:700 15px/1 sans-serif;color:#fff}
+.cardthumb .pick[aria-pressed="true"] .tick{background:var(--pink);border-color:var(--pink)}
+.cardthumb .nm2{font-weight:600;color:var(--ink,#241820)}
+.cardthumb .snd{font-size:12.5px;padding:7px 8px;text-decoration:none;text-align:center}
+.cardthumb .snd.done{background:var(--green-soft);color:var(--green-ink)}
+.bulkbar{position:sticky;bottom:0;background:var(--card,#fff);padding:10px 0 4px;display:flex;flex-direction:column;gap:8px;z-index:2}
 </style>
 </head>
 <body>
@@ -468,7 +476,8 @@ function makeDemoClient(role){
                     { id:uid(), kindergarten_id:KG, child_id:'k1', author_id:'p', body:'نرجو تذكير لمى بشرب الماء، الجو حار اليوم.', created_at:ago(200), read_at:ago(150) } ]
   };
   T.children.forEach(c => T.invites.push({ code:'P-DEMO' + c.id.slice(1).padStart(4,'0'), kindergarten_id:KG, role:'parent', child_id:c.id,
-    label:'ولي الأمر', max_uses:4, uses:c.id==='k1'||c.id==='k2'?1:0, used_by:null, created_at:ago(9000), expires_at:new Date(Date.now()+80*864e5).toISOString(), revoked:false }));
+    label:'ولي الأمر', max_uses:4, uses:c.id==='k1'||c.id==='k2'?1:0, used_by:null, created_at:ago(9000), expires_at:new Date(Date.now()+80*864e5).toISOString(), revoked:false,
+    phone: +c.id.slice(1) % 2 ? '9665000001' + c.id.slice(1).padStart(2,'0') : null }));
   ['S-DEMO0001','S-DEMO0002'].forEach((code,i) => T.invites.push({ code, kindergarten_id:KG, role:'teacher', child_id:null, label:'معلمة',
     max_uses:1, uses:0, created_at:ago(5000), expires_at:new Date(Date.now()+20*864e5).toISOString(), revoked:false }));
   const MY_KIDS = ['k1','k2'];   // the demo parent has two children
@@ -602,8 +611,13 @@ function makeDemoClient(role){
       let cls = T.classes.find(c => c.name === r.class);
       if(!cls && r.class){ cls = { id:'c' + (++code), kindergarten_id:KG, name:r.class }; T.classes.push(cls); }
       const out = RPC.add_child({ p_name:r.name, p_class:cls && cls.id, p_gender:r.gender })[0];
+      const inv = T.invites.find(i => i.code === out.code); if(inv) inv.phone = normPhone(r.phone);
       return { full_name:r.name, class_name:r.class||'', code:out.code };
     }),
+    set_invite_phone: ({ p_child, p_phone }) => {
+      const ph = normPhone(p_phone); if(!ph && String(p_phone||'').trim()) throw new Error('BAD_PHONE');
+      T.invites.filter(i => i.child_id === p_child && i.role === 'parent').forEach(i => i.phone = ph); return ph;
+    },
     add_child_code: () => [{ child_id:'k2', full_name:kid('k2').full_name }],
     child_guardians: ({ p_child }) => MY_KIDS.includes(p_child) ? [{ id:ME, full_name:'ولي الأمر (تجربة)', phone:'0500000000' }] : [],
     create_invite: ({ p_role, p_child, p_label, p_max, p_days }) => {
@@ -2488,6 +2502,63 @@ async function makeCardCanvas(child, code){
   });
   return cv;
 }
+// parent mobile, stored as 9665XXXXXXXX (same rules as norm_phone in the database)
+function normPhone(v){
+  let d = String(v == null ? '' : v).replace(/[٠-٩]/g, x => '٠١٢٣٤٥٦٧٨٩'.indexOf(x)).replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x)).replace(/\D/g, '');
+  if(/^00/.test(d)) d = d.slice(2);
+  if(/^05\d{8}$/.test(d)) return '966' + d.slice(1);
+  if(/^5\d{8}$/.test(d)) return '966' + d;
+  if(/^9665\d{8}$/.test(d)) return d;
+  if(/^[1-9]\d{9,14}$/.test(d) && !/^966/.test(d)) return d;
+  return null;
+}
+const showPhone = ph => !ph ? '' : /^9665\d{8}$/.test(ph) ? '0' + ph.slice(3) : '+' + ph;
+function cardMessage(child, code){
+  return `السلام عليكم، هذه بطاقة ولي أمر ${first(child.full_name)} في ${brandName()}.\n` +
+         `رمز التسجيل: ${code}\n` +
+         `١) حمّل تطبيق «كيدورا»: https://apps.apple.com/sa/app/id6819013599\n` +
+         `   (أندرويد: افتح kidora.answer.sa)\n` +
+         `٢) اختر «حساب جديد» وسجّل برقم جوالك.\n` +
+         `٣) أدخل الرمز أعلاه.\n` +
+         `الرمز خاص بطفلك، لا تشاركه خارج العائلة.`;
+}
+const waTo = (ph, text) => 'https://wa.me/' + ph + '?text=' + encodeURIComponent(text);
+// which cards this device already sent (a reminder for the director, nothing more)
+const SENT_KEY = 'kidora.cardsSent';
+function sentMarks(){ try { return JSON.parse(localStorage.getItem(SENT_KEY) || '{}') || {}; } catch(_){ return {}; } }
+function markSent(code){ try { const m = sentMarks(); m[code] = Date.now(); localStorage.setItem(SENT_KEY, JSON.stringify(m)); } catch(_){} }
+// copy the card image too, so it can be pasted into the chat WhatsApp opens
+function copyCardImage(file){
+  try { if(file && navigator.clipboard && window.ClipboardItem) navigator.clipboard.write([new ClipboardItem({ 'image/png': file })]).catch(()=>{}); } catch(_){}
+}
+// a plain (stored) ZIP, so a computer gets one download instead of dozens
+const CRC_T = (() => { const t = new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320 ^ (c>>>1) : c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(u8){ let c = 0xFFFFFFFF; for(let i=0;i<u8.length;i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+async function zipFiles(files, name){
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  for(const f of files){
+    const data = new Uint8Array(await f.arrayBuffer()), nm = enc.encode(f.name), crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint32(14,crc,true);
+    h.setUint32(18,data.length,true); h.setUint32(22,data.length,true); h.setUint16(26,nm.length,true);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0,0x02014b50,true); c.setUint16(4,20,true); c.setUint16(6,20,true); c.setUint16(8,0x0800,true); c.setUint32(16,crc,true);
+    c.setUint32(20,data.length,true); c.setUint32(24,data.length,true); c.setUint16(28,nm.length,true); c.setUint32(42,off,true);
+    parts.push(h, nm, data); central.push(c, nm); off += 30 + nm.length + data.length;
+  }
+  const size = central.reduce((s,x) => s + x.byteLength, 0), end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true); end.setUint16(8,files.length,true); end.setUint16(10,files.length,true);
+  end.setUint32(12,size,true); end.setUint32(16,off,true);
+  return new File([...parts, ...central, end], name, { type:'application/zip' });
+}
+// save several cards: phones get the share sheet («حفظ الصور»), computers one ZIP
+async function saveCards(files){
+  if(!files.length) return;
+  if(canShareFiles(files)){ try { await navigator.share({ files, title:'بطاقات أولياء الأمور' }); } catch(_){} return; }
+  if(files.length === 1){ downloadFile(files[0]); toast('حُفظت الصورة'); return; }
+  downloadFile(await zipFiles(files, 'kidora-cards.zip'));
+  toast(`حُفظت ${files.length} بطاقة في ملف واحد`);
+}
 const cardFileName = code => 'kidora-' + String(code).replace(/[^A-Za-z0-9-]/g,'') + '.png';
 async function cardFile(cv, code){
   const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
@@ -2515,46 +2586,77 @@ async function bulkCardsSheet(){
   const opts = S.classes.map(c => `<option value="${c.id}">فصل ${esc(c.name)}</option>`).join('');
   openSheet(`
     <h3>بطاقات من لم يسجّل</h3>
-    <p class="help">صورة لكل طفل لم يسجّل وليّ أمره بعد — نفس بطاقة صفحة الطفل. اضغطي على أي بطاقة لحفظها أو إرسالها لأهل الطفل.</p>
+    <p class="help">بطاقة لكل طفل لم يسجّل وليّ أمره بعد. «إرسال» يفتح واتساب على رقم ولي الأمر والرسالة جاهزة فيها الرمز (والبطاقة منسوخة، الصقيها في المحادثة).
+    أو حدّدي بطاقات واحفظيها مرة واحدة.</p>
     <div class="field"><label for="bcl">الفصل</label>
       <select id="bcl"><option value="">جميع الفصول</option>${opts}</select></div>
     <div id="bmsg"></div>
     <div id="bgrid" class="cardgrid"></div>
-    <button class="btn" id="ball" style="display:none">حفظ الكل</button>
+    <div class="bulkbar" id="bbar" style="display:none">
+      <button class="btn" id="bsave">حفظ المحدد</button>
+      <button class="btn soft sm" id="bpick">تحديد الكل</button>
+    </div>
     <button class="btn soft sm" id="bx">إغلاق</button>
   `);
   const panel = sheetPanel;
-  panel.querySelector('#bx').onclick = closeSheet;
+  const $ = s => panel.querySelector(s);
+  $('#bx').onclick = closeSheet;
   let items = [], run = 0;
+  const sel = () => items.filter(x => x.on);
+  const sync = () => {
+    const n = sel().length;
+    $('#bsave').textContent = n ? `حفظ المحدد (${n})` : 'حفظ الكل';
+    $('#bpick').textContent = n === items.length ? 'إلغاء التحديد' : 'تحديد الكل';
+  };
   const draw = async () => {
     const my = ++run;
-    const rows = unregisteredKids(panel.querySelector('#bcl').value);
-    const grid = panel.querySelector('#bgrid'), msg = panel.querySelector('#bmsg'), all = panel.querySelector('#ball');
+    const rows = unregisteredKids($('#bcl').value);
+    const grid = $('#bgrid'), msg = $('#bmsg');
     grid.innerHTML = ''; items = [];
-    all.style.display = 'none';
+    $('#bbar').style.display = 'none';
     if(!rows.length){ msg.innerHTML = '<p class="help">🎉 سجّل أولياء أمور جميع الأطفال في هذا الاختيار.</p>'; return; }
-    msg.innerHTML = `<p class="help">${kidsWord(rows.length)} لم يسجّل أولياء أمورهم.</p>`;
+    const nPh = rows.filter(x => x.inv.phone).length;
+    msg.innerHTML = `<p class="help">${kidsWord(rows.length)} لم يسجّل أولياء أمورهم${nPh ? ` — ${nPh} منهم بجوال ولي الأمر` : ''}.</p>`;
+    const sent = sentMarks();
     for(const {c, inv} of rows){
       if(my !== run || !panel.isConnected) return;
       const cv = await makeCardCanvas(c, inv.code);
       if(my !== run) return;
       const file = await cardFile(cv, inv.code);
       if(!file) continue;
-      const b = el(`<button class="cardthumb" aria-label="بطاقة ${esc(c.full_name)}"><span>${esc(first(c.full_name))}</span></button>`);
-      b.prepend(cv);
-      b.onclick = async () => {
-        if(canShareFiles([file])){ try { await navigator.share({ files:[file], title:'بطاقة ولي الأمر' }); } catch(_){} }
-        else { downloadFile(file); toast('حُفظت الصورة'); }
-      };
-      grid.appendChild(b); items.push(file);
+      const it = { file, on:false };
+      const box = el(`<div class="cardthumb">
+        <button class="pick" aria-pressed="false" aria-label="تحديد بطاقة ${esc(c.full_name)}"><span class="tick">✓</span></button>
+        <span class="nm2">${esc(first(c.full_name))}</span>
+        ${inv.phone
+          ? `<a class="btn soft sm snd${sent[inv.code] ? ' done' : ''}" target="_blank" rel="noopener" href="${esc(waTo(inv.phone, cardMessage(c, inv.code)))}">${sent[inv.code] ? '✓ أُرسلت' : '📲 إرسال'} ${esc(showPhone(inv.phone))}</a>`
+          : `<button class="btn soft sm snd">مشاركة</button>`}
+      </div>`);
+      const pick = box.querySelector('.pick');
+      pick.prepend(cv);
+      pick.onclick = () => { it.on = !it.on; pick.setAttribute('aria-pressed', it.on ? 'true' : 'false'); sync(); };
+      const snd = box.querySelector('.snd');
+      if(inv.phone) snd.addEventListener('click', () => {
+        copyCardImage(file); markSent(inv.code);
+        snd.classList.add('done'); snd.textContent = '✓ أُرسلت ' + showPhone(inv.phone);
+      });
+      else snd.onclick = () => saveCards([file]);
+      grid.appendChild(box); items.push(it);
+      if(items.length === 1){ $('#bbar').style.display = ''; }
+      sync();
     }
-    if(items.length > 1) all.style.display = '';
   };
-  panel.querySelector('#bcl').onchange = draw;
-  panel.querySelector('#ball').onclick = async () => {
-    if(canShareFiles(items)){ try { await navigator.share({ files: items, title:'بطاقات أولياء الأمور' }); } catch(_){} return; }
-    for(const f of items){ downloadFile(f); await new Promise(r => setTimeout(r, 350)); }
-    toast(`حُفظت ${items.length} صورة`);
+  $('#bcl').onchange = draw;
+  $('#bpick').onclick = () => {
+    const on = sel().length !== items.length;
+    items.forEach(x => x.on = on);
+    panel.querySelectorAll('#bgrid .pick').forEach(b => b.setAttribute('aria-pressed', on ? 'true' : 'false'));
+    sync();
+  };
+  $('#bsave').onclick = async (e) => {
+    const files = (sel().length ? sel() : items).map(x => x.file);
+    e.target.disabled = true;
+    try { await saveCards(files); } finally { e.target.disabled = false; }
   };
   draw();
 }
@@ -2648,7 +2750,7 @@ function headerRole(h){
   const t = String(h||'').trim();
   if(!t) return null;
   if(/حافلة|باص|bus/i.test(t))            return /اسم|خط|رقم|route|no/i.test(t) ? 'route' : 'bus';
-  if(/جوال|هاتف|رقم|phone|mobile/i.test(t)) return 'phone';           // read, never imported
+  if(/جوال|هاتف|رقم|phone|mobile/i.test(t)) return 'phone';           // parent's mobile → kept on the parent code
   if(/فصل|صف|class|group/i.test(t))       return 'cls';
   if(/جنس|نوع|gender|sex/i.test(t))       return 'gender';
   if(/اسم|طفل|name|child|student/i.test(t)) return 'name';
@@ -2670,13 +2772,13 @@ function looksLikeName(s){
 
 function rowsFromMatrix(mat){
   if(!mat || !mat.length) return [];
-  let idx = { name:0, cls:1, gender:2, bus:-1, route:-1 }, start = 0;
+  let idx = { name:0, cls:1, gender:2, bus:-1, route:-1, phone:-1 }, start = 0;
   const first = mat[0].map(x=>String(x==null?'':x).trim());
   const roles = first.map(headerRole);
   if(roles.some(r=>r==='name')){
     start = 1;
-    idx = { name:-1, cls:-1, gender:-1, bus:-1, route:-1 };
-    roles.forEach((r,i)=>{ if(r && r!=='phone' && idx[r] === -1) idx[r] = i; });
+    idx = { name:-1, cls:-1, gender:-1, bus:-1, route:-1, phone:-1 };
+    roles.forEach((r,i)=>{ if(r && idx[r] === -1) idx[r] = i; });
   }
   const out = [];
   for(let i=start;i<mat.length;i++){
@@ -2691,7 +2793,8 @@ function rowsFromMatrix(mat){
       class:  idx.cls>=0 ? (p[idx.cls]||'') : '',
       gender: MALE(idx.gender>=0 ? p[idx.gender] : '') ? 'm' : 'f',
       bus,
-      route:  bus && idx.route>=0 ? (p[idx.route]||'') : ''
+      route:  bus && idx.route>=0 ? (p[idx.route]||'') : '',
+      phone:  idx.phone>=0 ? (normPhone(p[idx.phone]) || '') : ''
     });
   }
   return out;
@@ -2743,7 +2846,7 @@ async function rowsFromWorkbook(file){
 function importSheet(){
   openSheet(`
     <h3>استيراد قائمة الأطفال</h3>
-    <p class="help">ارفع ملف Excel الجاهز، أو ملف CSV. الأعمدة: اسم الطفل، الفصل، الجنس، يركب الحافلة، اسم الحافلة. الفصول غير الموجودة تُنشأ تلقائيًا، ويُصدَر لكل طفل رمز ولي أمر.</p>
+    <p class="help">ارفع ملف Excel الجاهز، أو ملف CSV. الأعمدة: اسم الطفل، الفصل، الجنس، يركب الحافلة، اسم الحافلة، جوال ولي الأمر. الفصول غير الموجودة تُنشأ تلقائيًا، ويُصدَر لكل طفل رمز ولي أمر — وإن وُجد الجوال تُرسلين البطاقة له مباشرة.</p>
     <div class="field"><label for="if">ملف Excel أو CSV</label><input id="if" type="file" accept=".xlsx,.xls,.csv,text/csv,text/plain"></div>
     <div class="field"><label for="it">أو الصق الصفوف هنا</label>
       <textarea id="it" rows="5" placeholder="الاسم,الفصل,الجنس&#10;لمى العتيبي,الفراشات,أنثى&#10;تركي الحربي,النحل,ذكر"></textarea></div>
@@ -2789,7 +2892,7 @@ function importSheet(){
       const isNew = classes.filter(c => !known.includes(c));
       prev.innerHTML = `<div class="ok">${rows.length} طفل جاهز للاستيراد.</div>` +
         (isNew.length ? `<p class="help">فصول ستُنشأ: ${esc(isNew.join('، '))}</p>` : '') +
-        `<p class="help">يركب الحافلة: ${rows.filter(r=>r.bus).length} من ${rows.length}</p>` +
+        `<p class="help">يركب الحافلة: ${rows.filter(r=>r.bus).length} من ${rows.length} · جوال ولي الأمر: ${rows.filter(r=>r.phone).length} من ${rows.length}</p>` +
         `<div class="tblwrap"><table class="tbl"><thead><tr><th>الاسم</th><th>الفصل</th><th>الجنس</th><th>الحافلة</th></tr></thead><tbody>` +
         rows.slice(0,8).map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.class||'—')}</td><td>${r.gender==='m'?'ذكر':'أنثى'}</td><td>${r.bus?esc(r.route||'نعم'):'—'}</td></tr>`).join('') +
         `</tbody></table></div>` + (rows.length>8 ? `<p class="help">…و${rows.length-8} صفًا آخر.</p>` : '');
@@ -2805,20 +2908,13 @@ function importSheet(){
     }
     const made = r.data;
     await refresh(); await loadInvites();
-    openSheet(`<h3>تم استيراد ${made.length} طفل</h3>
-      <p class="help">هذه رموز أولياء الأمور. كل رمز يصلح لأربعة أشخاص.</p>
-      <div class="tblwrap"><table class="tbl"><thead><tr><th>الطفل</th><th>الفصل</th><th>الرمز</th></tr></thead>
-      <tbody>${made.map(x=>`<tr><td>${esc(x.full_name)}</td><td>${esc(x.class_name||'—')}</td><td>${esc(x.code)}</td></tr>`).join('')}</tbody></table></div>
-      <button class="btn" id="idl">تنزيل الرموز CSV</button>
-      <button class="btn soft sm" id="idone">تم</button>`);
-    sheetPanel.querySelector('#idl').onclick = () => {
-      const head = 'الطفل,الفصل,رمز ولي الأمر\n';
-      const body = made.map(x=>[x.full_name, x.class_name||'', x.code].join(',')).join('\n');
-      const blob = new Blob(['﻿'+head+body], {type:'text/csv;charset=utf-8'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = 'parent-codes.csv';
-      document.body.appendChild(a); a.click(); a.remove();
-    };
+    const withPhone = rows.filter(x => x.phone).length;
+    openSheet(`<h3>تم استيراد ${kidsWord(made.length)}</h3>
+      <p class="help">لكل طفل بطاقة ولي أمر فيها رمزه وطريقة التسجيل.
+      ${withPhone ? `ولـ <b>${withPhone}</b> منهم جوال ولي أمر — أرسلي البطاقات الآن، كل واحدة إلى رقمها مباشرة.` : 'أرسليها الآن لأولياء الأمور.'}</p>
+      <button class="btn" id="isend">📲 إرسال البطاقات لأولياء الأمور</button>
+      <button class="btn soft sm" id="idone">لاحقًا</button>`);
+    sheetPanel.querySelector('#isend').onclick = () => { render(); bulkCardsSheet(); };
     sheetPanel.querySelector('#idone').onclick = ()=>{ closeSheet(); render(); };
   };
 }
@@ -2965,13 +3061,16 @@ function drawParentCard(ctx, d){
   ctx.fillText('الرمز خاص بطفلك — لا تشاركه خارج العائلة', CARD_W/2, CARD_H - 96);
 }
 
-async function parentCardSheet(child, code){
+async function parentCardSheet(child, inv){
+  const code = inv.code;
   openSheet(`
     <h3>بطاقة ولي الأمر</h3>
     <p class="help">صورة جاهزة لإرسالها لأهل ${esc(first(child.full_name))} على واتساب — فيها الرمز وطريقة التثبيت.</p>
     <div id="cardwrap" style="display:flex;justify-content:center"><div class="spin"></div></div>
     <div id="cardmsg"></div>
-    <button class="btn" id="cardsave">حفظ الصورة</button>
+    ${inv.phone ? `<a class="btn" id="cardwa" target="_blank" rel="noopener" style="text-align:center;text-decoration:none"
+        href="${esc(waTo(inv.phone, cardMessage(child, code)))}">📲 إرسال إلى ${esc(showPhone(inv.phone))}</a>` : ''}
+    <button class="btn ${inv.phone ? 'soft sm' : ''}" id="cardsave">حفظ الصورة</button>
     <button class="btn soft sm" id="cardshare" style="display:none">مشاركة</button>
     <button class="btn soft sm" id="cardx">إغلاق</button>
   `);
@@ -2982,6 +3081,8 @@ async function parentCardSheet(child, code){
   const wrap = panel.querySelector('#cardwrap');
   if(wrap){ wrap.innerHTML = ''; wrap.appendChild(cv); }
   const file = await cardFile(cv, code);
+  const wa = panel.querySelector('#cardwa');
+  if(wa) wa.addEventListener('click', () => { copyCardImage(file); markSent(code); });
 
   panel.querySelector('#cardsave').onclick = () => {
     if(!file){ panel.querySelector('#cardmsg').innerHTML = '<div class="err">تعذّر إنشاء الصورة.</div>'; return; }
@@ -3014,6 +3115,8 @@ function childSheet(c){
     </div>
     ${inv ? `<div><p class="help" style="margin-bottom:6px">رمز أولياء الأمور — استُخدم ${inv.uses||0} من ${inv.max_uses||1}</p>
       <div class="codebox"><b>${esc(inv.code)}</b><button id="cp">نسخ</button></div></div>` : ''}
+    ${inv ? `<div class="field"><label for="eph">جوال ولي الأمر (لإرسال البطاقة)</label>
+      <input id="eph" inputmode="tel" placeholder="05XXXXXXXX" value="${esc(showPhone(inv.phone))}"></div>` : ''}
     ${inv ? '<button class="btn blue sm" id="ecard">بطاقة ولي الأمر (صورة)</button>' : ''}
     <div id="gbox"><p class="help">جارٍ تحميل أولياء الأمور…</p></div>
     <div id="emsg"></div>
@@ -3022,7 +3125,7 @@ function childSheet(c){
     <button class="btn soft sm" id="ecancel">إغلاق</button>
   `);
   if(inv) sheetPanel.querySelector('#cp').onclick = (e)=>copyText(inv.code, e.target);
-  if(inv) sheetPanel.querySelector('#ecard').onclick = ()=>parentCardSheet(c, inv.code);
+  if(inv) sheetPanel.querySelector('#ecard').onclick = ()=>parentCardSheet(c, inv);
   sheetPanel.querySelector('#ecancel').onclick = closeSheet;
   const busSw = sheetPanel.querySelector('#ebus');
   busSw.onclick = () => {
@@ -3058,6 +3161,15 @@ function childSheet(c){
       bus_route: ridesBus ? (sheetPanel.querySelector('#eroute').value.trim() || null) : null
     }).eq('id', c.id);
     if(error){ sheetPanel.querySelector('#emsg').innerHTML='<div class="err">'+esc(error.message)+'</div>'; btn.disabled=false; btn.textContent='حفظ'; return; }
+    const phIn = sheetPanel.querySelector('#eph');
+    if(inv && phIn && (normPhone(phIn.value) || '') !== (inv.phone || '')){
+      if(phIn.value.trim() && !normPhone(phIn.value)){
+        sheetPanel.querySelector('#emsg').innerHTML = '<div class="err">رقم الجوال غير صحيح. مثال: 0551234567</div>'; btn.disabled=false; btn.textContent='حفظ'; return;
+      }
+      const pr = await sb.rpc('set_invite_phone', { p_child: c.id, p_phone: phIn.value.trim() });
+      if(pr.error){ sheetPanel.querySelector('#emsg').innerHTML = '<div class="err">تعذّر حفظ رقم الجوال.</div>'; btn.disabled=false; btn.textContent='حفظ'; return; }
+      inv.phone = pr.data || null;
+    }
     await refresh(); closeSheet(); toast('تم الحفظ'); render();
   };
   sheetPanel.querySelector('#earchive').onclick = async () => {
@@ -3553,7 +3665,7 @@ async function loadStaff(){
 }
 
 async function loadInvites(){
-  const { data } = await sb.from('invites').select('*').order('code').limit(400);
+  const { data } = await sb.from('invites').select('*').order('code').limit(1000);
   S.invites = data || [];
 }
 
