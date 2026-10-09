@@ -1064,7 +1064,7 @@ async function loadCore(){
   S.isOwner = !!(ow && ow.data === true);
   const gr = (g && g.data) || [];
   S.consentGiven = gr.some(x => x.consent_at);
-  S.photoConsent = gr.length ? gr.every(x => x.photo_consent !== false) : true;
+  S.photoConsent = gr.length ? gr.every(x => x.photo_consent === true) : false;   // opt-in: no answer = no photos
   if(isStaff0) S.noPhoto = new Set(((np && np.data) || []).map(r => r.child_id));
   if(!S.activeClass && S.classes.length) S.activeClass = S.classes[0].id;
   return true;
@@ -3708,14 +3708,19 @@ function viewSettings(){
     const pv = el(`<div class="card"><h3>الخصوصية والموافقة</h3></div>`);
 
     if(!S.consentGiven){
-      pv.appendChild(el(`<p class="help">لم تُسجَّل موافقتك بعد. الموافقة الأساسية لازمة لعرض بيانات طفلك.</p>`));
-      const cb = el('<button class="btn sm">تسجيل الموافقة</button>');
-      cb.onclick = async () => {
-        const r = await safe(sb.rpc('set_consent', { p_photo: null, p_version: POLICY_VERSION }));
+      pv.appendChild(el(`<p class="help">لم تُسجَّل موافقتك بعد. الموافقة الأساسية لازمة لعرض بيانات طفلك (الاسم، الفصل، الحضور والغياب). ونشر صور طفلك في أخبار الفصل <b>اختياري</b>:</p>`));
+      const give = async (photo) => {
+        const r = await safe(sb.rpc('set_consent', { p_photo: photo, p_version: POLICY_VERSION }));
         if(!r){ toast('تعذّر الحفظ'); return; }
-        S.consentGiven = true; toast('تم تسجيل الموافقة'); render();
+        S.consentGiven = true; S.photoConsent = photo; toast('تم تسجيل الموافقة'); render();
       };
+      const cb = el('<div class="actions2"><button class="btn sm" id="cy">موافق، مع نشر الصور</button><button class="btn soft sm" id="cn">موافق، بدون صور</button></div>');
+      cb.querySelector('#cy').onclick = () => give(true);
+      cb.querySelector('#cn').onclick = () => give(false);
       pv.appendChild(cb);
+      const wd0 = el('<button class="btn soft sm">لا أوافق — احذف حسابي</button>');
+      wd0.onclick = deleteMyAccountSheet;
+      pv.appendChild(wd0);
     } else {
       pv.appendChild(el(`<div class="switchrow"><div class="t"><b>البيانات الأساسية</b>
         <span>الاسم، الفصل، الحضور والغياب، رحلات الحافلة. لازمة لتشغيل الخدمة.</span></div>
