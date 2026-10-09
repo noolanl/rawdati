@@ -629,6 +629,7 @@ function makeDemoClient(role){
     },
     attendance_report: () => T.children.map((c,i) => ({ child_id:c.id, full_name:c.full_name, class_name:cname(c.class_id), present: 14 + (i*3)%6, absent_reported: i%3, left_early:0 })),
     consent_status: () => T.children.map((c,i) => ({ child_id:c.id, guardians: i < 6 ? 1 + i%2 : 0, consented: i < 6 ? 1 : 0, photo_declined: i === 4 ? 1 : 0 })),
+    set_teacher_classes: ({ p_classes }) => (p_classes || []).length,
     kg_staff: () => [{ id:ME, full_name:names[role]||'', role, phone:'0500000000' }, { id:'t2', full_name:'أ. هيا (تجربة)', role:'teacher', phone:'0500000001' }],
     open_resets: () => [],
     export_kindergarten: () => ({ demo:true, note:'بيانات تجريبية' }),
@@ -1052,7 +1053,9 @@ async function loadCore(){
     safe(sb.rpc('is_owner')),
     safe(sb.rpc('my_consent')),
     isStaff0 ? safe(sb.rpc('no_photo_children')) : Promise.resolve(null),
-    refresh()
+    refresh(),
+    prof.role === 'teacher' ? safe(sb.from('class_teachers').select('class_id').eq('profile_id', prof.id)).then(r => {
+      S.myClassIds = ((r && r.data) || []).map(x => x.class_id); }) : Promise.resolve(S.myClassIds = [])
   ]);
   S.kg = kg.data; S.classes = classes.data || [];
   if(GENERIC && S.kg){
@@ -1069,7 +1072,7 @@ async function loadCore(){
   S.policySeen = gr.filter(x => x.consent_at).map(x => x.policy_version || '').sort()[0] || '';
   S.photoConsent = gr.length ? gr.every(x => x.photo_consent === true) : false;   // opt-in: no answer = no photos
   if(isStaff0) S.noPhoto = new Set(((np && np.data) || []).map(r => r.child_id));
-  if(!S.activeClass && S.classes.length) S.activeClass = S.classes[0].id;
+  if(!S.activeClass || !rosterClasses().find(c => c.id === S.activeClass)) S.activeClass = (rosterClasses()[0] || {}).id || null;
   return true;
 }
 
@@ -1129,7 +1132,14 @@ async function refresh(){
     const lk = (lkr && lkr.data) || [];
     S.linked = new Set(lk.map(r => (typeof r === 'string' ? r : r.children_with_push)));
   }
-  if(!S.activeClass && S.classes.length) S.activeClass = S.classes[0].id;
+  if(!S.activeClass && rosterClasses().length) S.activeClass = rosterClasses()[0].id;
+}
+
+// a teacher limited by the director to some classes sees only those; otherwise every class
+function rosterClasses(){
+  const mine = S.myClassIds || [];
+  const role = S.preview || (S.profile && S.profile.role);
+  return role === 'teacher' && mine.length ? S.classes.filter(c => mine.includes(c.id)) : S.classes;
 }
 
 function subscribe(){
@@ -1315,9 +1325,9 @@ function viewRoster(){
 
   const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
 
-  if(S.classes.length > 1){
+  if(rosterClasses().length > 1){
     const chips = el('<div class="chips"></div>');
-    S.classes.forEach(c => {
+    rosterClasses().forEach(c => {
       const b = el(`<button class="chip" aria-pressed="${c.id===S.activeClass}">${esc(c.name)}</button>`);
       b.onclick = () => { S.activeClass = c.id; render(); };
       chips.appendChild(b);
@@ -3507,12 +3517,34 @@ function staffSheet(p){
     <h3>${esc(p.full_name || '—')}</h3>
     <p class="help">${esc(p.phone || '')} · ${ROLE_AR[p.role]||'معلمة'}</p>
     <div id="smsg"></div>
+    ${p.role === 'teacher' && S.classes.length > 1 ? `<div class="card" style="padding:14px 16px;box-shadow:none;background:var(--sunken)">
+      <b>فصول المعلمة</b><p class="help" style="margin:2px 0 8px">بدون اختيار = كل الفصول. تختار المعلمة من فصولها فقط في شاشة الحضور والتقرير اليومي.</p>
+      <div id="tcls" class="chips" style="flex-wrap:wrap">${S.classes.map(c => `<button class="chip" data-c="${c.id}" aria-pressed="false">${esc(c.name)}</button>`).join('')}</div>
+      <button class="btn sm" id="tsave" style="margin-top:10px">حفظ الفصول</button></div>` : ''}
     <button class="btn soft" id="spw">إعادة تعيين كلمة المرور</button>
     ${self || p.role==='admin' ? '' : '<button class="btn soft" id="sdel" style="color:var(--pink)">حذف الحساب نهائيًا</button>'}
     <button class="btn soft sm" id="sx">إغلاق</button>
   `);
   sheetPanel.querySelector('#sx').onclick = closeSheet;
   sheetPanel.querySelector('#spw').onclick = () => resetPasswordFor(p.id, p.full_name);
+  const tc = sheetPanel.querySelector('#tcls');
+  if(tc){
+    const chips = [...tc.querySelectorAll('[data-c]')];
+    chips.forEach(b => b.onclick = () => b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')));
+    safe(sb.from('class_teachers').select('class_id').eq('profile_id', p.id)).then(r => {
+      const on = ((r && r.data) || []).map(x => x.class_id);
+      chips.forEach(b => b.setAttribute('aria-pressed', String(on.includes(b.dataset.c))));
+    });
+    sheetPanel.querySelector('#tsave').onclick = async (e) => {
+      if(previewBlock()) return;
+      const ids = chips.filter(b => b.getAttribute('aria-pressed') === 'true').map(b => b.dataset.c);
+      e.target.disabled = true;
+      const r = await safe(sb.rpc('set_teacher_classes', { p_profile: p.id, p_classes: ids }));
+      e.target.disabled = false;
+      if(!r){ sheetPanel.querySelector('#smsg').innerHTML = '<div class="err">تعذّر الحفظ.</div>'; return; }
+      toast(ids.length ? 'تم تحديد فصول المعلمة' : 'المعلمة تغطي كل الفصول');
+    };
+  }
   const del = sheetPanel.querySelector('#sdel');
   if(del) del.onclick = () => confirmAction(
     'حذف الحساب',
