@@ -661,7 +661,7 @@ function makeDemoClient(role){
 const sb = DEMO ? makeDemoClient(DEMO) : supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ---------- error reports: unexpected JS errors go to the server (max 5 per session, no personal data) ---------- */
-const APP_VERSION = '2026.10.08';
+const APP_VERSION = '2026.10.09';
 (() => {
   if(DEMO) return;
   const seen = new Set(); let sent = 0;
@@ -708,8 +708,13 @@ const POLICY_URL = 'https://answer.sa/kidora/privacy';
 const el = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
 const esc = (s) => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LOC = 'ar-SA-u-ca-gregory-nu-latn';
+// random id that also works on older iPhones (iOS < 15.4 has no crypto.randomUUID)
+const rid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+  : ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & 15) >> c / 4).toString(16));
 const fmtTime = (d) => new Date(d).toLocaleTimeString(LOC,{hour:'numeric',minute:'2-digit',timeZone:'Asia/Riyadh'});
 const fmtDay  = (d) => new Date(d).toLocaleDateString(LOC,{weekday:'long',day:'numeric',month:'long',timeZone:'Asia/Riyadh'});
+const fmtHijri = (d) => { try { return new Date(d).toLocaleDateString('ar-SA-u-ca-islamic-umalqura-nu-latn',{day:'numeric',month:'long',timeZone:'Asia/Riyadh'}).replace(/\s*هـ$/, ''); } catch(_){ return ''; } };
+const fmtToday = () => { const h = fmtHijri(new Date()); return fmtDay(new Date()) + (h ? ' · ' + h : ''); };
 const today   = () => new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Riyadh'});
 const initial = (n) => (n||'؟').trim().charAt(0);
 const first   = (n) => String(n||'').split(' ')[0];
@@ -938,8 +943,11 @@ function renderAuth(mode){
         if(!data.session){ msg.innerHTML = '<div class="ok">تم إنشاء الحساب. سجّل الدخول الآن.</div>'; btn.disabled=false; return; }
         const { error: e2 } = await sb.rpc('redeem_invite', { p_code: code });
         if(e2){
-          await sb.auth.signOut();
-          throw new Error(e2.message.includes('ALREADY_USED') ? 'هذا الرمز مستخدم من قبل.' : 'رمز الانضمام غير صحيح.');
+          // the account exists now — keep it signed in and let them fix the code (no orphan account)
+          try { sessionStorage.setItem('kidora_code', code); } catch(_){}
+          S.session = data.session;
+          renderNeedsCode(codeErrText(e2.message), code);
+          return;
         }
         clearPendingCode();
         const photoOk = !!(v.querySelector('#cp') && v.querySelector('#cp').checked);
@@ -986,7 +994,15 @@ function renderOffline(){
   window.addEventListener('online', again);
 }
 
-function renderNeedsCode(){
+function codeErrText(m){
+  m = String(m || '');
+  return m.includes('ALREADY_USED') ? 'هذا الرمز استُخدم لعدد أولياء الأمور المسموح. اطلب رمزًا جديدًا من الروضة.'
+       : m.includes('EXPIRED') ? 'انتهت صلاحية الرمز. اطلب رمزًا جديدًا من الروضة.'
+       : m.includes('REVOKED') ? 'هذا الرمز أُلغي. اطلب رمزًا جديدًا من الروضة.'
+       : m.includes('ALREADY_ENROLLED') ? 'حسابك مرتبط بروضة بالفعل.'
+       : 'رمز الانضمام غير صحيح. تأكد من كتابته كما هو (مثال: P-ABCD2345).';
+}
+function renderNeedsCode(errMsg, codeVal){
   document.documentElement.classList.add('authmode');
   app.innerHTML='';
   const v = el(`<div class="auth">
@@ -995,19 +1011,20 @@ function renderNeedsCode(){
     <p class="sub">أدخل رمز الانضمام الذي أعطتك إياه الروضة</p>
     <div id="msg"></div>
     <form id="f" style="display:flex;flex-direction:column;gap:13px">
-      <div class="field"><label for="cd">رمز الانضمام</label><input id="cd" required placeholder="PARENT-0001" style="text-transform:uppercase"></div>
+      <div class="field"><label for="cd">رمز الانضمام</label><input id="cd" required placeholder="P-XXXXXXXX" dir="ltr" autocomplete="off" style="text-transform:uppercase"></div>
       <button class="btn" type="submit">متابعة</button>
     </form>
     <button class="linkbtn" id="out">تسجيل الخروج</button>
   </div>`);
   app.appendChild(v);
-  { const pc = pendingCode(); if(pc) v.querySelector('#cd').value = pc; }
+  { const pc = codeVal || pendingCode(); if(pc) v.querySelector('#cd').value = pc; }
+  if(errMsg) v.querySelector('#msg').innerHTML = '<div class="err">' + esc(errMsg) + '</div>';
   v.querySelector('#out').onclick = async()=>{ await unregisterNative(); await sb.auth.signOut(); boot(); };
   v.querySelector('#f').onsubmit = async (e)=>{
     e.preventDefault();
     const btn=e.target.querySelector('button'); btn.disabled=true;
     const { error } = await sb.rpc('redeem_invite',{ p_code: v.querySelector('#cd').value.trim().toUpperCase() });
-    if(error){ v.querySelector('#msg').innerHTML='<div class="err">رمز غير صحيح أو مستخدم.</div>'; btn.disabled=false; return; }
+    if(error){ v.querySelector('#msg').innerHTML='<div class="err">' + esc(codeErrText(error.message)) + '</div>'; btn.disabled=false; return; }
     clearPendingCode();
     boot();
   };
@@ -1500,12 +1517,8 @@ function composer(kind){
     const paths = [];
     try{
       const files = isAct ? Array.from(sheetPanel.querySelector('#ph').files||[]) : [];
-      for(const f of files.slice(0,9)){
-        const path = `${S.kg.id}/${crypto.randomUUID()}-${f.name.replace(/[^\w.\-]/g,'_')}`;
-        const { error } = await sb.storage.from('photos').upload(path, f, { upsert:false });
-        if(error) throw error;
-        paths.push(path);
-      }
+      if(files.length) paths.push(...await uploadPhotos(files, btn));
+      btn.textContent = 'جارٍ النشر…';
       const { data, error } = await sb.from('posts').insert({
         kindergarten_id: S.kg.id, class_id, author_id: S.profile.id,
         kind, body, photo_paths: paths
@@ -1746,17 +1759,64 @@ function drStepForm(st){
   };
 }
 
+/* ---- photos: shrink to ≤1600px JPEG (≈200–400 KB instead of 3–5 MB) and drop hidden
+   metadata such as the phone's GPS location, then upload three at a time ---- */
+const IMG_EXT = { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp', heic:'image/heic', heif:'image/heif', gif:'image/gif' };
+function imgType(f){ return f.type || IMG_EXT[(String(f.name).split('.').pop() || '').toLowerCase()] || ''; }
+async function shrinkImage(f, max = 1600, q = 0.82){
+  if(!/^image\/(jpeg|png|webp|heic|heif)$/i.test(imgType(f))) return f;
+  let url = null;
+  try{
+    let src;
+    if(window.createImageBitmap){
+      try { src = await createImageBitmap(f, { imageOrientation:'from-image' }); } catch(_){ src = null; }
+    }
+    if(!src){
+      url = URL.createObjectURL(f);
+      src = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+    }
+    const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight;
+    if(!w || !h) return f;
+    const k = Math.min(1, max / Math.max(w, h));
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
+    const cx = cv.getContext('2d');
+    cx.fillStyle = '#fff'; cx.fillRect(0, 0, cv.width, cv.height);
+    cx.drawImage(src, 0, 0, cv.width, cv.height);
+    if(src.close) src.close();
+    const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', q));
+    if(!blob || !blob.size) return f;
+    return new File([blob], String(f.name).replace(/\.[^.]*$/, '') + '.jpg', { type:'image/jpeg' });
+  }catch(_){ return f; }
+  finally { if(url) URL.revokeObjectURL(url); }
+}
+async function uploadPhotos(files, btn){
+  const list = Array.from(files || []).slice(0, 9);
+  const out = new Array(list.length);
+  const label = btn ? btn.textContent : '';
+  let done = 0;
+  const one = async (f, i) => {
+    const g = await shrinkImage(f);
+    const type = imgType(g);
+    if(!/^image\//.test(type)) throw new Error('هذا الملف ليس صورة: ' + f.name);
+    if(g.size > 10 * 1024 * 1024) throw new Error('حجم الصورة كبير (الحد ١٠ ميجابايت): ' + f.name);
+    const path = `${S.kg.id}/${rid()}-${String(g.name).replace(/[^\w.\-]/g,'_')}`;
+    const { error } = await sb.storage.from('photos').upload(path, g, { upsert:false, contentType:type });
+    if(error) throw error;
+    out[i] = path; done++;
+    if(btn && list.length > 1) btn.textContent = `جارٍ رفع الصور ${done}/${list.length}…`;
+  };
+  const queue = list.map((f, i) => [f, i]);
+  await Promise.all(Array.from({ length: Math.min(3, queue.length) }, async () => {
+    while(queue.length){ const [f, i] = queue.shift(); await one(f, i); }
+  }));
+  if(btn) btn.textContent = label;
+  return out;
+}
+
 /* ---- upload photos and write the reports ---- */
 async function drUpload(files){
-  const paths = [];
-  for(const f of (files || []).slice(0, 9)){
-    if(f.size > 8 * 1024 * 1024) throw new Error('حجم الصورة كبير (الحد ٨ ميجابايت): ' + f.name);
-    if(!/^image\//.test(f.type)) throw new Error('هذا الملف ليس صورة: ' + f.name);
-    const path = `${S.kg.id}/${crypto.randomUUID()}-${f.name.replace(/[^\w.\-]/g,'_')}`;
-    const { error } = await sb.storage.from('photos').upload(path, f, { upsert:false });
-    if(error) throw error;
-    paths.push(path);
-  }
+  const paths = await uploadPhotos(files);
   return paths.length ? paths : null;
 }
 
@@ -3881,7 +3941,7 @@ function renderInner(){
   const cls = S.classes.find(c=>c.id===S.activeClass);
   const sub = staff && S.tab==='roster' && cls ? 'فصل '+cls.name+' · '+fmtDay(new Date())
             : isBus && S.tab==='bus' ? BUS_TRIPS[S.busTrip] + ' · ' + fmtDay(new Date())
-            : fmtDay(new Date());
+            : fmtToday();
 
   const top = el(`<div class="topbar">
     <img class="logo" src="${esc(brandLogo())}" alt="">
