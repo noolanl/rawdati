@@ -2903,20 +2903,19 @@ function drawParentCard(ctx, d){
 
   // the link
   ctx.fillStyle = '#0E6E99';
-  ctx.font = '600 44px "IBM Plex Mono", ui-monospace, monospace';
-  ctx.fillText(d.host, CARD_W/2, by + bh + 92);
+  ctx.font = '700 44px "IBM Plex Sans Arabic", sans-serif';
+  ctx.fillText('حمّل تطبيق «كيدورا»', CARD_W/2, by + bh + 92);
   ctx.fillStyle = '#6E6069';
   ctx.font = '400 28px "IBM Plex Sans Arabic", sans-serif';
-  ctx.fillText('افتح هذا الرابط من جوالك', CARD_W/2, by + bh + 140);
+  ctx.fillText('من App Store — أو افتح ' + d.host + ' من المتصفح', CARD_W/2, by + bh + 140);
 
   // steps
   ctx.textAlign = 'right';
   let y = 880;
   const steps = [
-    ['افتح الرابط أعلاه من متصفح جوالك', ''],
-    ['أضِف التطبيق إلى شاشتك الرئيسية',
-     'آيفون: زر المشاركة ⬆ ← «إضافة إلى الشاشة الرئيسية»\nأندرويد: قائمة ⋮ ← «تثبيت التطبيق»'],
-    ['افتحه من الشاشة الرئيسية وسجّل برقم جوالك', 'ثم أدخل رمز الدخول المكتوب أعلاه'],
+    ['حمّل تطبيق «كيدورا» من App Store',
+     'أندرويد: افتح ' + d.host + ' من المتصفح\n(تطبيق Google Play قريبًا)'],
+    ['اختر «حساب جديد» وسجّل برقم جوالك', 'ثم أدخل رمز الدخول المكتوب أعلاه'],
     ['فعّل الإشعارات عندما يطلبها', 'بدونها لن يصلك تنبيه وصول طفلك']
   ];
   steps.forEach(([title, sub], i) => {
@@ -2987,7 +2986,7 @@ async function parentCardSheet(child, code){
     childName: child.full_name,
     className: cls ? cls.name : '',
     code: code,
-    host: IS_NATIVE ? 'answer.sa/kidora' : location.host
+    host: 'kidora.answer.sa'
   });
 
   const wrap = sheetPanel.querySelector('#cardwrap');
