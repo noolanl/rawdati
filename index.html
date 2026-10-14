@@ -1755,7 +1755,7 @@ function viewRoster(){
 
   wrap.appendChild(el(`<div class="counter">
     <div class="pill ok"><b class="num">${inN}</b><span>في الروضة</span></div>
-    <div class="pill left"><b class="num">${leftN}</b><span>غادر</span></div>
+    <div class="pill left"><b class="num">${leftN}</b><span>غادروا</span></div>
     <div class="pill no"><b class="num">${kids.length-inN-leftN-absN}</b><span>لم يصل</span></div>
     <div class="pill blue"><b class="num">${absN}</b><span>غياب مُبلّغ</span></div>
   </div>`));
@@ -1894,8 +1894,8 @@ function viewBus(){
 
   wrap.appendChild(el(`<div class="counter">
     <div class="pill blue"><b class="num">${onBus}</b><span>في الحافلة</span></div>
-    <div class="pill ok"><b class="num">${done}</b><span>${S.busTrip==='am'?'وصل الروضة':'وصل المنزل'}</span></div>
-    <div class="pill no"><b class="num">${waiting}</b><span>لم يركب</span></div>
+    <div class="pill ok"><b class="num">${done}</b><span>${S.busTrip==='am'?'وصلوا الروضة':'وصلوا البيت'}</span></div>
+    <div class="pill no"><b class="num">${waiting}</b><span>لم يركبوا</span></div>
     <div class="pill left"><b class="num">${absN}</b><span>غياب مُبلّغ</span></div>
   </div>`));
 
@@ -2789,7 +2789,7 @@ function adminOverview(){
   wrap.appendChild(el(`<div class="counter">
     <div class="pill blue"><b class="num">${total}</b><span>الأطفال</span></div>
     <div class="pill ok"><b class="num">${inN}</b><span>في الروضة</span></div>
-    <div class="pill left"><b class="num">${leftN}</b><span>غادر</span></div>
+    <div class="pill left"><b class="num">${leftN}</b><span>غادروا</span></div>
     <div class="pill no"><b class="num">${absN}</b><span>غياب مُبلّغ</span></div>
   </div>`));
 
