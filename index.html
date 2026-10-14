@@ -1916,8 +1916,9 @@ function viewBus(){
       k.boarded_at = row.boarded_at; k.arrived_at = row.arrived_at;
       const s2 = busState(k);
       if(s2 !== 'none') notifyServer({ type:'bus', child_id: k.child_id, trip: S.busTrip });
-      toast(s2==='boarded' ? 'ركب ' + first(k.full_name) + ' الحافلة — أُشعر ولي الأمر'
-          : s2==='arrived' ? (S.busTrip==='am' ? 'وصل ' : 'وصل ') + first(k.full_name) + (S.busTrip==='am'?' الروضة':' المنزل') + ' — أُشعر ولي الأمر'
+      const kf = k.gender === 'f';
+      toast(s2==='boarded' ? (kf ? 'ركبت ' : 'ركب ') + first(k.full_name) + ' الحافلة — أُشعر ولي الأمر'
+          : s2==='arrived' ? (kf ? 'وصلت ' : 'وصل ') + first(k.full_name) + (S.busTrip==='am'?' الروضة':' البيت') + ' — أُشعر ولي الأمر'
           : 'تم إلغاء التسجيل');
       await busCheckDone();
       render();
@@ -2358,9 +2359,10 @@ function viewParent(){
   S.myChildren.forEach(c => {
     const st = statusOf(c.id);
     const cls = S.classes.find(x=>x.id===c.class_id);
+    const fem = c.gender === 'f';
     const txt = st.k==='in' ? first(c.full_name) + ' في الروضة الآن'
-              : st.k==='left' ? first(c.full_name) + ' غادر الروضة'
-              : first(c.full_name) + ' لم يصل بعد';
+              : st.k==='left' ? first(c.full_name) + (fem ? ' غادرت الروضة' : ' غادر الروضة')
+              : first(c.full_name) + (fem ? ' لم تصل بعد' : ' لم يصل بعد');
     const sub = st.t ? (st.k==='in'?'الوصول ':'المغادرة ') + fmtTime(st.t) : fmtDay(new Date());
     wrap.appendChild(el(`<div class="hero ${st.k==='in'?'':st.k}">
       <span class="who-kid">${esc(c.full_name)}${cls?' · فصل '+esc(cls.name):''}</span>
