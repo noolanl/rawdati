@@ -3616,7 +3616,7 @@ function childSheet(c){
       <select id="ec">${S.classes.map(x=>`<option value="${x.id}" ${x.id===c.class_id?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>
     <div class="switchrow">
       <span class="t"><b>يركب الحافلة</b><span>تراه مرافقة الحافلة وتسجّل ركوبه ووصوله</span></span>
-      <button class="sw" id="ebus" role="switch" aria-checked="${c.rides_bus?'true':'false'}"></button>
+      <button class="sw" id="ebus" role="switch" aria-label="يركب الحافلة" aria-checked="${c.rides_bus?'true':'false'}"></button>
     </div>
     <div class="field" id="eroutebox" style="${c.rides_bus?'':'display:none'}">
       <label for="eroute">اسم الحافلة أو الخط (اختياري)</label>
@@ -4317,7 +4317,7 @@ function viewSettings(){
 
   rows.forEach(([key, title, desc]) => {
     const r = el(`<div class="switchrow"><div class="t"><b>${title}</b><span>${desc}</span></div>
-      <button class="sw" role="switch" aria-checked="${!!S.notif[key]}"></button></div>`);
+      <button class="sw" role="switch" aria-label="${title}" aria-checked="${!!S.notif[key]}"></button></div>`);
     r.querySelector('.sw').onclick = async (e) => {
       S.notif[key] = !S.notif[key];
       e.target.setAttribute('aria-checked', String(!!S.notif[key]));
@@ -4341,7 +4341,7 @@ function viewSettings(){
   card.appendChild(act);
 
   const quiet = el(`<div class="switchrow"><div class="t"><b>ساعات الهدوء</b><span>لا تصل تنبيهات الأنشطة والإعلانات بين ٩ مساءً و٦ صباحًا.</span></div>
-    <button class="sw" role="switch" aria-checked="${!!S.notif.quiet}"></button></div>`);
+    <button class="sw" role="switch" aria-label="ساعات الهدوء" aria-checked="${!!S.notif.quiet}"></button></div>`);
   quiet.querySelector('.sw').onclick = async (e) => {
     S.notif.quiet = !S.notif.quiet;
     e.target.setAttribute('aria-checked', String(!!S.notif.quiet));
@@ -4390,7 +4390,7 @@ function viewSettings(){
 
       const ph = el(`<div class="switchrow"><div class="t"><b>نشر صور طفلي</b>
         <span>اختياري. إيقافه لا يُخرجك من التطبيق — يستمر كل شيء عدا الصور.</span></div>
-        <button class="sw" role="switch" aria-checked="${!!S.photoConsent}"></button></div>`);
+        <button class="sw" role="switch" aria-label="نشر صور طفلي" aria-checked="${!!S.photoConsent}"></button></div>`);
       ph.querySelector('.sw').onclick = async (e) => {
         const want = !S.photoConsent;
         const r = await safe(sb.rpc('set_photo_consent', { p_ok: want }));
