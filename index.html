@@ -510,8 +510,8 @@ function makeDemoClient(role){
                     { id:uid(), kindergarten_id:KG, child_id:'k1', author_id:'p', body:'نرجو تذكير لمى بشرب الماء، الجو حار اليوم.', created_at:ago(200), read_at:ago(150) } ],
     bus_trips: [], bus_locations: []
   };
-  // the demo parent sees the bus moving on the map (a short loop, one point every 15 s)
-  if(role === 'parent'){
+  // the demo parent (and director) see the bus moving on the map (a short loop, one point every 15 s)
+  if(role === 'parent' || role === 'admin'){
     const trip = { id:'demo-trip', kindergarten_id:KG, route:'الحافلة ١', trip:'pm', day:day(), started_by:'demo-bus', started_at:ago(12), ended_at:null };
     T.bus_trips.push(trip);
     const PATH = [[24.7745,46.6380],[24.7731,46.6404],[24.7716,46.6427],[24.7700,46.6449],[24.7689,46.6473],[24.7676,46.6496],[24.7662,46.6518],[24.7650,46.6541]];
@@ -1178,6 +1178,7 @@ async function refresh(){
     if(mb) (mb.data||[]).forEach(r => S.myBus[r.child_id + '|' + r.trip] = r);
     await loadParentBus();
   }
+  if(S.profile.role === 'admin') await loadParentBus();
   // previewing another role: borrow the data that role would see
   if(S.preview === 'parent'){
     S.myChildren = S.children.slice(0, 1);
@@ -1227,16 +1228,16 @@ function subscribe(){
   // own child's bus, and only while the trip is live).
   if(S.busChannel) sb.removeChannel(S.busChannel);
   S.busChannel = null;
-  if(S.profile.role !== 'parent' && S.profile.role !== 'bus') return;
+  if(!['parent','bus','admin'].includes(S.profile.role)) return;
   const ch = sb.channel('bus-live')
     .on('postgres_changes',{event:'*',schema:'public',table:'bus_trips'}, async () => {
-      if(S.profile.role === 'parent'){ await loadParentBus(); softRender(); }
+      if(S.profile.role === 'parent' || S.profile.role === 'admin'){ await loadParentBus(); softRender(); }
       else if(S.profile.role === 'bus'){ const had = S.busLive && S.busLive.id; await loadMyBusTrip();
         if(had && !S.busLive) toast('انتهت الرحلة ووقف إرسال الموقع'); softRender(); }
     });
-  if(S.profile.role === 'parent') ch.on('postgres_changes',{event:'INSERT',schema:'public',table:'bus_locations'}, p => {
+  if(S.profile.role === 'parent' || S.profile.role === 'admin') ch.on('postgres_changes',{event:'INSERT',schema:'public',table:'bus_locations'}, p => {
       const r = p.new;
-      if(S.profile.role !== 'parent' || !r || !r.trip_id) return;
+      if(!r || !r.trip_id) return;
       const had = S.busLoc[r.trip_id];
       if(had && had.recorded_at >= r.recorded_at) return;
       S.busLoc[r.trip_id] = { trip_id:r.trip_id, lat:r.lat, lng:r.lng, recorded_at:r.recorded_at };
@@ -1627,7 +1628,8 @@ function loadLeaflet(){
   return leafletP;
 }
 async function loadParentBus(){
-  if(S.preview || !S.myChildren.some(c => c.rides_bus)){ S.busTrips = []; dropBusMaps(); return; }
+  const kids = S.profile.role === 'admin' ? S.children : S.myChildren;   // directors: every bus of the kindergarten
+  if(S.preview || !(kids || []).some(c => c.rides_bus)){ S.busTrips = []; dropBusMaps(); return; }
   const r = await safe(sb.from('bus_trips').select('id,kindergarten_id,route,trip,day,started_at,ended_at').eq('day', today()));
   if(!r) return;
   S.busTrips = r.data || [];
@@ -1689,7 +1691,7 @@ function busMapCard(t){
     <div class="bmslot"></div>
     <p class="bmupd" data-trip="${esc(t.id)}"></p></div>`);
   const slot = c.querySelector('.bmslot');
-  if((S.policySeen || '') < BUS_POLICY){          // shown only after the parent accepted the policy that mentions it
+  if(actingRole() === 'parent' && (S.policySeen || '') < BUS_POLICY){   // parents: only after accepting the policy that mentions it
     slot.replaceWith(el(`<div class="bmwait">${S.consentGiven ? 'وافق على تحديث الخصوصية فوق، ويظهر لك موقع الباص.'
       : 'وافق على سياسة الخصوصية من الإعدادات، ويظهر لك موقع الباص.'}</div>`));
   } else if(loc){
@@ -1703,7 +1705,7 @@ function busMapCard(t){
 // every 15 s while a map is on screen: refresh the "last update" text, and fetch the position
 // ourselves if the live channel has gone quiet (bad network, demo mode)
 setInterval(async () => {
-  if(!S.profile || actingRole() !== 'parent' || document.visibilityState !== 'visible') return;
+  if(!S.profile || !['parent','admin'].includes(actingRole()) || document.visibilityState !== 'visible') return;
   const live = (S.busTrips || []).filter(tripLive);
   if(!live.length){ if(Object.keys(BM).length){ dropBusMaps(); softRender(); } return; }
   if(Date.now() - (S.busRT || 0) > 30000){
@@ -2791,6 +2793,14 @@ function adminOverview(){
     </div>`));
   });
   wrap.appendChild(bars);
+
+  // the buses on the road right now — shown only once a position can be read (needs the v35 bus policy)
+  const liveBus = (S.busTrips || []).filter(t => tripLive(t) && S.busLoc[t.id]);
+  if(liveBus.length && !S.preview){
+    const bc = el('<div style="display:flex;flex-direction:column;gap:12px"></div>');
+    liveBus.forEach(t => bc.appendChild(busMapCard(t)));
+    wrap.appendChild(bc);
+  }
 
   // parents onboarding: how many children already have a registered parent
   if(total && !S.preview){
