@@ -749,7 +749,7 @@ const S = {
   brand:null, pending:new Set(), resets:[], isOwner:false, tenants:[],
   busTrip:(Number(new Date().toLocaleString('en-GB',{hour:'2-digit',hour12:false,timeZone:'Asia/Riyadh'})) < 11 ? 'am' : 'pm'),
   busRoster:[], busRoute:null, myBus:{}, preview:null,
-  busLive:null, busTrips:[], busLoc:{}, busRT:0,
+  busLive:null, busTrips:[], busLoc:{}, busRT:0, busChannel:null,
   photoConsent:true, noPhoto:new Set()
 };
 
@@ -1204,14 +1204,21 @@ function subscribe(){
       if(S.profile.role === 'bus') { await loadBusRoster(); await busCheckDone(); softRender(); }
       else if(S.profile.role === 'parent'){ await refresh(); softRender(); }
     })
-    // live bus location: a trip started/ended, and new positions (the database only sends a parent
-    // the rows for their own child's bus, and only while the trip is live)
+    .subscribe();
+  // live bus location on its own channel: the server refuses a whole channel when one of its tables
+  // isn't published for realtime, so a problem there must never take the bus map down with it.
+  // A trip started/ended, and new positions (the database only sends a parent the rows for their
+  // own child's bus, and only while the trip is live).
+  if(S.busChannel) sb.removeChannel(S.busChannel);
+  S.busChannel = null;
+  if(S.profile.role !== 'parent' && S.profile.role !== 'bus') return;
+  const ch = sb.channel('bus-live')
     .on('postgres_changes',{event:'*',schema:'public',table:'bus_trips'}, async () => {
       if(S.profile.role === 'parent'){ await loadParentBus(); softRender(); }
       else if(S.profile.role === 'bus'){ const had = S.busLive && S.busLive.id; await loadMyBusTrip();
         if(had && !S.busLive) toast('انتهت الرحلة ووقف إرسال الموقع'); softRender(); }
-    })
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'bus_locations'}, p => {
+    });
+  if(S.profile.role === 'parent') ch.on('postgres_changes',{event:'INSERT',schema:'public',table:'bus_locations'}, p => {
       const r = p.new;
       if(S.profile.role !== 'parent' || !r || !r.trip_id) return;
       const had = S.busLoc[r.trip_id];
@@ -1220,8 +1227,8 @@ function subscribe(){
       S.busRT = Date.now();
       if(BM[r.trip_id] && BM[r.trip_id].map){ busMapMove(r.trip_id); paintBusAgo(); }
       else softRender();                           // first position: draw the map
-    })
-    .subscribe();
+    });
+  S.busChannel = ch.subscribe();
 }
 
 // ---- offline queue: a tap at the door must never be lost to bad wifi ----
