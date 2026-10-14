@@ -2906,7 +2906,7 @@ function weekLines(w){
   const possible = (w.children || 0) * (w.days || 0);
   const pct = possible ? Math.round((w.present || 0) / possible * 100) : 0;
   return [
-    ['الحضور', pct + '٪ (' + (w.present || 0) + ' من ' + possible + ' يوم-طفل)'],
+    ['الحضور', pct + '% (' + (w.present || 0) + ' من ' + possible + ' يوم-طفل)'],
     ['تقارير يومية', String(w.reports || 0)],
     ['نشاطات بالصور', String(w.photo_posts || 0)],
     ['بلاغات غياب من التطبيق', String(w.absences || 0)],
@@ -2937,7 +2937,7 @@ function onboardingCard(o){
   const steps = [
     [o.classes > 0 && kids > 0, 'الفصول والأطفال جاهزين' + (kids ? ' (' + kidsWord(kids) + ')' : '')],
     [o.teachers > 0, o.teachers ? 'سجّلت ' + o.teachers + ' من المعلمات' : 'المعلمات يسجّلون برموزهم'],
-    [kids > 0 && par >= kids, 'أولياء الأمور سجّلوا: ' + par + ' من ' + kids, 'parents'],
+    [kids > 0 && par >= kids, 'الأهالي سجّلوا: ' + par + ' من ' + kids, 'parents'],
     [o.attendance_days > 0, 'أول تسجيل حضور'],
     [o.reports > 0, 'أول تقرير يومي'],
     [o.photo_posts > 0, 'أول نشاط بالصور']
