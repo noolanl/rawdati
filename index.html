@@ -248,6 +248,15 @@ body:has(.demobar) .topbar{position:relative;padding-top:12px !important}
 
 /* ===== dashboard ===== */
 .bars{display:flex;flex-direction:column;gap:13px}
+.onbl{display:flex;flex-direction:column;margin:10px 0 4px}
+.onbr{display:flex;gap:10px;align-items:center;padding:7px 0;font-size:14.5px;border-top:1px solid var(--line)}
+.onbr:first-child{border-top:none}
+.onbr .ck{width:24px;height:24px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:12px;font-weight:700;flex:none;color:transparent}
+.onbr.done .ck{background:var(--green-soft);border-color:var(--green-soft);color:var(--green-ink)}
+.onbr.done .tx{color:var(--ink-2)}
+.onbr .tx{flex:1}
+.onbr .btn{flex:none;width:auto;margin:0;padding:7px 14px}
+.onbr .tx{min-width:0}
 .bar{display:grid;grid-template-columns:1fr 60px;gap:10px;align-items:center;font-size:13.5px}
 .bar .lbl{display:flex;flex-direction:column;gap:6px}
 .track{height:9px;border-radius:99px;background:var(--sunken);overflow:hidden}
@@ -582,6 +591,13 @@ function makeDemoClient(role){
 
   const RPC = {
     tenant_public: () => [T.kindergartens[0]],
+    onboarding_status: () => ({
+      classes: T.classes.length, children: T.children.filter(c => c.active).length,
+      teachers: T.profiles.filter(p => p.role === 'teacher').length + T.invites.filter(i => i.role === 'teacher' && i.uses > 0).length,
+      children_with_parent: new Set(T.invites.filter(i => i.role === 'parent' && i.uses > 0).map(i => i.child_id)).size,
+      attendance_days: new Set(T.attendance.map(a => a.day)).size,
+      reports: T.daily_updates.length,
+      photo_posts: T.posts.filter(p => p.kind === 'activity' && (p.photo_paths || []).length).length }),
     is_owner: () => false,
     my_consent: () => MY_KIDS.map(id => ({ child_id:id, consent_at:ago(9000), photo_consent:true, policy_version:'2026-10-14' })),
     no_photo_children: () => [],
@@ -2733,7 +2749,7 @@ function viewAdmin(){
   const nav = el('<div class="subnav"></div>');
   TABS.forEach(([k,l])=>{
     const b = el(`<button aria-pressed="${S.adminTab===k}">${l}</button>`);
-    b.onclick = async ()=>{ S.adminTab = k; if(k==='staff' && !S.staff.length) await loadStaff(); render(); };
+    b.onclick = async ()=>{ S.adminTab = k; if(k==='overview') S.onb = undefined; if(k==='staff' && !S.staff.length) await loadStaff(); render(); };
     nav.appendChild(b);
   });
   wrap.appendChild(nav);
@@ -2780,7 +2796,14 @@ function adminOverview(){
       safe(loadInvites()).then(() => { if(S.invites.length) softRender(); });
     }
     const joined = S.children.filter(c => S.invites.some(i => i.child_id === c.id && (i.uses||0) > 0)).length;
-    if(S.invites.length && joined < total){
+    if(S.onb === undefined && !adminOverview.onbLoading){
+      adminOverview.onbLoading = true;
+      Promise.resolve(sb.rpc('onboarding_status')).then(r => { S.onb = (r && !r.error && r.data) || null; })
+        .catch(() => { S.onb = null; }).finally(() => { adminOverview.onbLoading = false; softRender(); });
+    }
+    const onb = S.onb ? onboardingCard(S.onb) : null;
+    if(onb) wrap.appendChild(onb);
+    else if(S.onb === null && S.invites.length && joined < total){
       const pct = Math.round(joined / total * 100);
       const ob = el(`<div class="card"><h3>انضمام أولياء الأمور</h3>
         <div class="bar"><div class="lbl"><span>سجّل أولياء أمور ${joined} من ${kidsWord(total)}</span>
@@ -2848,6 +2871,32 @@ function adminOverview(){
 }
 
 /* ---------- children ---------- */
+// «أول أسبوع»: what's left before the nursery runs on its own (shown until all done or hidden)
+const ONB_HIDE = () => 'kidora_onb_hide_' + (S.kg && S.kg.id || '');
+function onboardingCard(o){
+  try { if(localStorage.getItem(ONB_HIDE())) return null; } catch(_){}
+  const kids = o.children || 0, par = o.children_with_parent || 0;
+  const steps = [
+    [o.classes > 0 && kids > 0, 'الفصول والأطفال جاهزين' + (kids ? ' (' + kidsWord(kids) + ')' : '')],
+    [o.teachers > 0, o.teachers ? 'سجّلت ' + o.teachers + ' من المعلمات' : 'المعلمات يسجّلون برموزهم'],
+    [kids > 0 && par >= kids, 'أولياء الأمور سجّلوا: ' + par + ' من ' + kids, 'parents'],
+    [o.attendance_days > 0, 'أول تسجيل حضور'],
+    [o.reports > 0, 'أول تقرير يومي'],
+    [o.photo_posts > 0, 'أول نشاط بالصور']
+  ];
+  const done = steps.filter(s => s[0]).length;
+  if(done === steps.length) return null;
+  const pct = Math.round(done / steps.length * 100);
+  const c = el(`<div class="card"><h3>🚀 تجهيز روضتكم — ${done} من ${steps.length}</h3>
+    <div class="bar"><div class="lbl"><span class="track"><span class="fill" style="width:${pct}%"></span></span></div><span class="val num">${pct}%</span></div>
+    <div class="onbl">${steps.map(([ok, tx, k]) => `<div class="onbr${ok ? ' done' : ''}"><span class="ck">✓</span><span class="tx">${esc(tx)}</span>${
+      k === 'parents' && !ok ? '<button class="btn soft sm" id="onbcards">ذكّري الباقين</button>' : ''}</div>`).join('')}</div>
+    <button class="btn soft sm" id="onbhide">إخفاء</button></div>`);
+  const cb = c.querySelector('#onbcards'); if(cb) cb.onclick = bulkCardsSheet;
+  c.querySelector('#onbhide').onclick = () => { try { localStorage.setItem(ONB_HIDE(), '1'); } catch(_){} softRender(); };
+  return c;
+}
+
 function adminChildren(){
   const wrap = el('<div style="display:flex;flex-direction:column;gap:12px"></div>');
   const bar = el('<div class="actions2"></div>');
