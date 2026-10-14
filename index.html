@@ -137,7 +137,7 @@ body:has(.demobar) .topbar{position:relative;padding-top:12px !important}
 }
 .btn:active{transform:scale(.985)}
 .btn[disabled]{opacity:.55;cursor:progress;box-shadow:none}
-.btn.blue{background:var(--blue);box-shadow:0 6px 16px -8px rgba(36,167,225,.7)}
+.btn.blue{background:var(--blue-ink);box-shadow:0 6px 16px -8px rgba(14,110,153,.6)}   /* white text needs blue-ink (5.7:1), not blue (2.7:1) */
 .btn.green{background:var(--green);box-shadow:0 6px 16px -8px rgba(127,178,39,.7)}
 .btn.soft{background:var(--sunken);color:var(--ink);box-shadow:none}
 .btn.sm{padding:11px 16px;font-size:14.5px}
@@ -1398,10 +1398,11 @@ function busState(r){
   if(!r || !r.boarded_at) return 'none';
   return r.arrived_at ? 'arrived' : 'boarded';
 }
-function busLabel(trip, st, t){
-  if(st==='none') return trip==='am' ? 'لم يركب بعد' : 'لم يركب بعد';
-  if(trip==='am') return st==='boarded' ? 'في الحافلة · ' + fmtTime(t) : 'وصل الروضة · ' + fmtTime(t);
-  return st==='boarded' ? 'في الحافلة · ' + fmtTime(t) : 'وصل المنزل · ' + fmtTime(t);
+function busLabel(trip, st, t, fem){
+  if(st==='none') return fem ? 'لم تركب بعد' : 'لم يركب بعد';
+  const came = fem ? 'وصلت' : 'وصل';
+  if(trip==='am') return st==='boarded' ? 'في الحافلة · ' + fmtTime(t) : came + ' الروضة · ' + fmtTime(t);
+  return st==='boarded' ? 'في الحافلة · ' + fmtTime(t) : came + ' البيت · ' + fmtTime(t);
 }
 async function loadBusRoster(){
   const r = await safe(sb.rpc('bus_roster', { p_trip: S.busTrip }));
@@ -1771,10 +1772,11 @@ function viewRoster(){
   kids.forEach(k => {
     const st = statusOf(k.id);
     const ab = st.k==='out' ? absenceOf(k.id) : null;
-    const label = st.k==='in' ? 'وصل ' + fmtTime(st.t)
-                : st.k==='left' ? 'غادر ' + fmtTime(st.t)
+    const kf = k.gender === 'f';
+    const label = st.k==='in' ? (kf ? 'وصلت ' : 'وصل ') + fmtTime(st.t)
+                : st.k==='left' ? (kf ? 'غادرت ' : 'غادر ') + fmtTime(st.t)
                 : ab ? 'غياب مُبلّغ · ' + (REASONS[ab.reason] || ab.reason) + (ab.note ? ' · ' + ab.note : '')
-                : 'لم يصل بعد';
+                : (kf ? 'لم تصل بعد' : 'لم يصل بعد');
     const pk = pickupOf(k.id);
     const label2 = (S.pending.has(k.id) ? '⏳ بانتظار الإرسال · ' : '')
                  + (pk ? label + ' · يستلمه: ' + pk.person_name + (pk.pin ? ' · الرمز ' + pk.pin : '') : label);
@@ -1912,7 +1914,7 @@ function viewBus(){
     const st = busState(k);
     const t  = st==='arrived' ? k.arrived_at : k.boarded_at;
     const cls = st==='boarded' ? 'riding' : st==='arrived' ? 'present' : (k.absent ? 'absent' : '');
-    const label = k.absent && st==='none' ? 'غياب مُبلّغ اليوم' : busLabel(S.busTrip, st, t);
+    const label = k.absent && st==='none' ? 'غياب مُبلّغ اليوم' : busLabel(S.busTrip, st, t, k.gender === 'f');
     const b = el(`<button class="kid ${cls}">
       <span class="face">${esc(initial(k.full_name))}</span>
       <span class="nm"><b>${esc(k.full_name)}</b><span>${esc(label)}${k.bus_route && routes.length>1 ? ' · '+esc(k.bus_route) : ''}</span></span>
