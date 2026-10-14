@@ -2421,9 +2421,10 @@ function viewParent(){
       const st = busState(r);
       if(st === 'none') return;
       const t = st==='arrived' ? r.arrived_at : r.boarded_at;
+      const f = c.gender === 'f', nm = first(c.full_name);
       const txt = tp==='am'
-        ? (st==='boarded' ? first(c.full_name)+' في الحافلة متجهًا للروضة' : first(c.full_name)+' وصل الروضة بالحافلة')
-        : (st==='boarded' ? first(c.full_name)+' في الحافلة عائدًا للمنزل' : first(c.full_name)+' وصل المنزل بأمان');
+        ? (st==='boarded' ? nm+' في الحافلة '+(f?'متجهةً':'متجهًا')+' للروضة' : nm+(f?' وصلت':' وصل')+' الروضة بالحافلة')
+        : (st==='boarded' ? nm+' في الحافلة '+(f?'عائدةً':'عائدًا')+' للبيت' : nm+(f?' وصلت':' وصل')+' البيت');
       wrap.appendChild(el(`<div class="pickup-note">
         <span class="t">${ICONS.car} ${esc(txt)} · ${esc(fmtTime(t))}</span>
       </div>`));
