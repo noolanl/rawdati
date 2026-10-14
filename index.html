@@ -2812,13 +2812,12 @@ function adminOverview(){
     wrap.appendChild(bc);
   }
 
-  // parents onboarding: how many children already have a registered parent
-  if(total && !S.preview){
-    if(!S.invites.length && !adminOverview.loading){
+  // first-week checklist + weekly summary (each shows only when its RPC answers) + parents onboarding
+  if(!S.preview){
+    if(total && !S.invites.length && !adminOverview.loading){
       adminOverview.loading = true;
       safe(loadInvites()).then(() => { if(S.invites.length) softRender(); });
     }
-    const joined = S.children.filter(c => S.invites.some(i => i.child_id === c.id && (i.uses||0) > 0)).length;
     if(S.onb === undefined && !adminOverview.onbLoading){
       adminOverview.onbLoading = true;
       Promise.resolve(sb.rpc('onboarding_status')).then(r => { S.onb = (r && !r.error && r.data) || null; })
@@ -2829,11 +2828,11 @@ function adminOverview(){
       Promise.resolve(sb.rpc('week_summary')).then(r => { S.week = (r && !r.error && r.data) || null; })
         .catch(() => { S.week = null; }).finally(() => { adminOverview.weekLoading = false; softRender(); });
     }
+    const joined = S.children.filter(c => S.invites.some(i => i.child_id === c.id && (i.uses||0) > 0)).length;
     const onb = S.onb ? onboardingCard(S.onb) : null;
     if(onb) wrap.appendChild(onb);
-    const wk = S.week ? weekCard(S.week) : null;
-    if(wk) wrap.appendChild(wk);
-    else if(S.onb === null && S.invites.length && joined < total){
+    else if(S.onb === null && total && S.invites.length && joined < total){
+      // without the checklist RPC: the older «انضمام أولياء الأمور» card, as before
       const pct = Math.round(joined / total * 100);
       const ob = el(`<div class="card"><h3>انضمام أولياء الأمور</h3>
         <div class="bar"><div class="lbl"><span>سجّل أولياء أمور ${joined} من ${kidsWord(total)}</span>
@@ -2843,6 +2842,8 @@ function adminOverview(){
       ob.querySelector('#obprint').onclick = bulkCardsSheet;
       wrap.appendChild(ob);
     }
+    const wk = S.week ? weekCard(S.week) : null;
+    if(wk) wrap.appendChild(wk);
   }
 
   const abs = S.children
@@ -2935,9 +2936,9 @@ function onboardingCard(o){
   try { if(localStorage.getItem(ONB_HIDE())) return null; } catch(_){}
   const kids = o.children || 0, par = o.children_with_parent || 0;
   const steps = [
-    [o.classes > 0 && kids > 0, 'الفصول والأطفال جاهزين' + (kids ? ' (' + kidsWord(kids) + ')' : '')],
+    [o.classes > 0 && kids > 0, kids ? 'الفصول والأطفال جاهزين (' + kidsWord(kids) + ')' : 'ارفعي الفصول والأطفال من ملف Excel'],
     [o.teachers > 0, o.teachers ? 'سجّلت ' + o.teachers + ' من المعلمات' : 'المعلمات يسجّلون برموزهم'],
-    [kids > 0 && par >= kids, 'الأهالي سجّلوا: ' + par + ' من ' + kids, 'parents'],
+    [kids > 0 && par >= kids, kids ? 'الأهالي سجّلوا: ' + par + ' من ' + kids : 'الأهالي يسجّلون ببطاقات أطفالهم', kids ? 'parents' : ''],
     [o.attendance_days > 0, 'أول تسجيل حضور'],
     [o.reports > 0, 'أول تقرير يومي'],
     [o.photo_posts > 0, 'أول نشاط بالصور']
