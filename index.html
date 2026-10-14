@@ -1383,6 +1383,7 @@ async function loadBusRoster(){
 // Parents of children on that route see the bus on a map, only while the trip is live.
 // A web page can't send its location from the background, so her screen must stay on.
 const BUS_SEND_MS = 15000;
+const BUS_STILL_MS = 45000;               // no new position for this long (bus standing still) → ask the phone again
 const BUS_LIVE_MS = 3 * 3600e3;          // a forgotten trip stops by itself (also enforced by the server)
 const BUS_END_KEY = DEMO ? 'kidora_bus_end_demo' : 'kidora_bus_end';
 const BUS_POLICY = '2026-10-14';         // privacy version that first mentions the bus location
@@ -1468,6 +1469,12 @@ async function busTick(){
       // ended elsewhere (the director, or the 3-hour limit): stop sending at once
       S.busLive = null; stopSending(); toast('انتهت الرحلة ووقف إرسال الموقع'); softRender(); return;
     }
+  } else if(G.sentAt && Date.now() - G.sentAt > BUS_STILL_MS && !G.busy && G.err !== 'denied' && 'geolocation' in navigator){
+    // a bus waiting at a house gets no new fix from watchPosition on many phones, and parents would
+    // read «إشارته ضعيفة»: ask for a fresh fix, which the next tick sends
+    // (maximumAge 0 = a new reading; some browsers repeat the old timestamp for an unchanged position)
+    navigator.geolocation.getCurrentPosition(p => { onFix(p); if(G.fix) G.fix.ts = Math.max(G.fix.ts, Date.now()); },
+      onGeoErr, { enableHighAccuracy:true, maximumAge:0, timeout:20000 });
   }
   paintBusStatus();
 }
