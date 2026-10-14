@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; media-src 'self' blob: https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co https://tile.openstreetmap.org; connect-src 'self' https://*.supabase.co wss://*.supabase.co; media-src 'self' blob: https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#FFFFFF">
 <meta name="apple-itunes-app" content="app-id=6819013599">
@@ -309,6 +309,7 @@ body:has(.demobar) .topbar{position:relative;padding-top:12px !important}
 .consentbox input{width:20px;height:20px;flex:none;margin-top:2px;accent-color:var(--green)}
 .pickup-note{display:flex;align-items:center;gap:10px;background:var(--blue-soft);border-radius:var(--r-md);padding:12px 15px;font-size:13.5px;color:var(--blue-ink)}
 .pickup-note .t{flex:1}
+.pickup-note .t > svg{width:17px;height:17px;vertical-align:-3px;margin-inline-end:4px}
 .pickup-note .pinrow{display:block;margin-top:4px}
 .pickup-note .pin{font-size:17px;letter-spacing:2px;background:#fff;border-radius:8px;padding:1px 8px}
 .pickup-note .pkbtns{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
@@ -402,6 +403,30 @@ main{padding-bottom:max(100px, calc(84px + var(--safe-area-inset-bottom, env(saf
 .cardthumb .snd{font-size:12.5px;padding:7px 8px;text-decoration:none;text-align:center}
 .cardthumb .snd.done{background:var(--green-soft);color:var(--green-ink)}
 .bulkbar{position:sticky;bottom:0;background:var(--card,#fff);padding:10px 0 4px;display:flex;flex-direction:column;gap:8px;z-index:2}
+/* ===== live bus location ===== */
+.btn.bus{background:var(--yellow);color:var(--ink);box-shadow:0 6px 16px -8px rgba(239,181,19,.8)}
+.buslive .blhead{display:flex;align-items:center;gap:12px}
+.buslive .blhead .t{flex:1;display:flex;flex-direction:column;gap:2px}
+.buslive .blhead .t b{font-family:"Baloo Bhaijaan 2",sans-serif;font-size:16.5px;line-height:1.3}
+.buslive .blhead .t span{font-size:12.5px;color:var(--ink-2);line-height:1.6}
+.blic{width:44px;height:44px;border-radius:14px;background:var(--yellow-soft);display:grid;place-items:center;font-size:22px;flex:none}
+.buslive.on{background:var(--yellow-soft);box-shadow:none}
+.buslive.on .blic{background:var(--surface)}
+.livedot{width:12px;height:12px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(127,178,39,.6);animation:livepulse 1.8s infinite}
+@keyframes livepulse{70%{box-shadow:0 0 0 10px rgba(127,178,39,0)}100%{box-shadow:0 0 0 0 rgba(127,178,39,0)}}
+@media (prefers-reduced-motion:reduce){.livedot{animation:none}}
+#blstat.warn{color:var(--pink-ink);font-weight:600}
+.blnote{margin:0;font-size:13px;line-height:1.7;color:var(--yellow-ink);background:var(--surface);border-radius:var(--r-sm);padding:10px 12px}
+.busmap .bmhead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.livetag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--green-ink);background:var(--green-soft);border-radius:999px;padding:4px 10px}
+.livetag .livedot{width:8px;height:8px}
+.bmmap{position:relative;z-index:0;isolation:isolate;height:220px;border-radius:var(--r-md);overflow:hidden;background:var(--sunken)}
+.bmwait{border-radius:var(--r-md);background:var(--yellow-soft);color:var(--yellow-ink);font-size:13.5px;padding:14px;text-align:center}
+.bmupd{margin:0;font-size:12.5px;color:var(--ink-2)}
+.bmupd.stale{color:var(--pink-ink);font-weight:600}
+.busmk{background:none;border:none}
+.busmk span{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--yellow);border:3px solid #fff;box-shadow:0 4px 12px rgba(34,55,74,.35);font-size:20px;line-height:1}
+.leaflet-container{font-family:"IBM Plex Sans Arabic",system-ui,sans-serif}
 </style>
 </head>
 <body>
@@ -431,7 +456,7 @@ function makeDemoClient(role){
   const ago = (min) => new Date(Date.now() - min*6e4).toISOString();
   const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Math.random().toString(16).slice(2));
   const KG = 'demo-kg', ME = 'demo-me';
-  const names = { parent:'ولي الأمر (تجربة)', teacher:'المعلمة (تجربة)', admin:'المديرة (تجربة)' };
+  const names = { parent:'ولي الأمر (تجربة)', teacher:'المعلمة (تجربة)', admin:'المديرة (تجربة)', bus:'مرافقة الحافلة (تجربة)' };
 
   // colourful placeholder "photos" so the feed looks real
   const pic = (a, b, emoji) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(
@@ -473,8 +498,19 @@ function makeDemoClient(role){
     daily_updates: [ { child_id:'k1', day:day(), meal:'all', nap:'slept', mood:'happy', bathroom:null, note:'أكلت وجبتها كاملة وشاركت في الرسم بحماس.', photo_paths:['demo/p4'], updated_at:ago(30) } ],
     invites: [], push_subscriptions: [],
     parent_notes: [ { id:uid(), kindergarten_id:KG, child_id:'k3', author_id:'p2', body:'جود عندها موعد أسنان الساعة ١١، بيجي أبوها ياخذها ١٠:٣٠.', created_at:ago(40), read_at:null },
-                    { id:uid(), kindergarten_id:KG, child_id:'k1', author_id:'p', body:'نرجو تذكير لمى بشرب الماء، الجو حار اليوم.', created_at:ago(200), read_at:ago(150) } ]
+                    { id:uid(), kindergarten_id:KG, child_id:'k1', author_id:'p', body:'نرجو تذكير لمى بشرب الماء، الجو حار اليوم.', created_at:ago(200), read_at:ago(150) } ],
+    bus_trips: [], bus_locations: []
   };
+  // the demo parent sees the bus moving on the map (a short loop, one point every 15 s)
+  if(role === 'parent'){
+    const trip = { id:'demo-trip', kindergarten_id:KG, route:'الحافلة ١', trip:'pm', day:day(), started_by:'demo-bus', started_at:ago(12), ended_at:null };
+    T.bus_trips.push(trip);
+    const PATH = [[24.7745,46.6380],[24.7731,46.6404],[24.7716,46.6427],[24.7700,46.6449],[24.7689,46.6473],[24.7676,46.6496],[24.7662,46.6518],[24.7650,46.6541]];
+    let i = 0;
+    const step = () => { const [lat,lng] = PATH[i++ % PATH.length];
+      T.bus_locations.unshift({ id:uid(), trip_id:trip.id, kindergarten_id:KG, route:trip.route, trip:trip.trip, day:day(), lat, lng, accuracy:10, recorded_at:new Date().toISOString(), profile_id:'demo-bus' }); };
+    step(); setInterval(step, 15000);
+  }
   T.children.forEach(c => T.invites.push({ code:'P-DEMO' + c.id.slice(1).padStart(4,'0'), kindergarten_id:KG, role:'parent', child_id:c.id,
     label:'ولي الأمر', max_uses:4, uses:c.id==='k1'||c.id==='k2'?1:0, used_by:null, created_at:ago(9000), expires_at:new Date(Date.now()+80*864e5).toISOString(), revoked:false,
     phone: +c.id.slice(1) % 2 ? '9665000001' + c.id.slice(1).padStart(2,'0') : null }));
@@ -547,11 +583,17 @@ function makeDemoClient(role){
   const RPC = {
     tenant_public: () => [T.kindergartens[0]],
     is_owner: () => false,
-    my_consent: () => MY_KIDS.map(id => ({ child_id:id, consent_at:ago(9000), photo_consent:true, policy_version:'2026-10-09' })),
+    my_consent: () => MY_KIDS.map(id => ({ child_id:id, consent_at:ago(9000), photo_consent:true, policy_version:'2026-10-14' })),
     no_photo_children: () => [],
     children_with_push: () => ['k1','k3','k4','k7'],
     my_child_updates: () => T.daily_updates.filter(u => MY_KIDS.includes(u.child_id)).map(upd),
     day_updates: () => T.daily_updates.filter(u => u.day === day()).map(upd),
+    bus_trip_start: ({ p_trip, p_route }) => {
+      T.bus_trips.forEach(t => { if(t.started_by === ME && !t.ended_at) t.ended_at = new Date().toISOString(); });
+      const t = { id:uid(), kindergarten_id:KG, route:p_route||'', trip:p_trip, day:day(), started_by:ME, started_at:new Date().toISOString(), ended_at:null };
+      T.bus_trips.push(t); return clone(t);
+    },
+    bus_trip_end: ({ p_id }) => { const t = T.bus_trips.find(x => x.id === p_id && !x.ended_at); if(t) t.ended_at = new Date().toISOString(); return !!t; },
     my_bus_today: () => T.bus_logs.filter(b => MY_KIDS.includes(b.child_id) && b.day === day()).map(b => ({ child_id:b.child_id, trip:b.trip, boarded_at:b.boarded_at, arrived_at:b.arrived_at })),
     toggle_attendance: ({ p_child }) => {
       let r = T.attendance.find(a => a.child_id === p_child && a.day === day());
@@ -669,7 +711,7 @@ function makeDemoClient(role){
 const sb = DEMO ? makeDemoClient(DEMO) : supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ---------- error reports: unexpected JS errors go to the server (max 5 per session, no personal data) ---------- */
-const APP_VERSION = '2026.10.09';
+const APP_VERSION = '2026.10.14';
 (() => {
   if(DEMO) return;
   const seen = new Set(); let sent = 0;
@@ -707,10 +749,11 @@ const S = {
   brand:null, pending:new Set(), resets:[], isOwner:false, tenants:[],
   busTrip:(Number(new Date().toLocaleString('en-GB',{hour:'2-digit',hour12:false,timeZone:'Asia/Riyadh'})) < 11 ? 'am' : 'pm'),
   busRoster:[], busRoute:null, myBus:{}, preview:null,
+  busLive:null, busTrips:[], busLoc:{}, busRT:0,
   photoConsent:true, noPhoto:new Set()
 };
 
-const POLICY_VERSION = '2026-10-09';
+const POLICY_VERSION = '2026-10-14';
 const POLICY_URL = 'https://answer.sa/kidora/privacy';
 
 const el = (h) => { const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
@@ -878,7 +921,7 @@ function renderAuth(mode){
       <div class="field"><label for="cd">رمز الانضمام</label><input id="cd" required placeholder="P-A1B2C3D4" style="text-transform:uppercase">
         <p class="help">الرمز تعطيه لك إدارة الروضة.</p></div>
       <label class="consentbox"><input type="checkbox" id="cs" required>
-        <span><b>أوافق</b> على أن تحفظ الروضة اسم طفلي وفصله وسجلّ حضوره وغيابه ورحلات الحافلة، وأن تُعرض عليّ وعلى معلّماته فقط. هذه الموافقة لازمة لتشغيل الخدمة.
+        <span><b>أوافق</b> على أن تحفظ الروضة اسم طفلي وفصله وسجلّ حضوره وغيابه ورحلات الحافلة، وأن تُعرض عليّ وعلى معلّماته فقط. وإذا كان يركب الحافلة، يظهر لي ولأهالي ركّابها موقع الحافلة أثناء الرحلة فقط. هذه الموافقة لازمة لتشغيل الخدمة.
         <a href="${POLICY_URL}" target="_blank" rel="noopener">سياسة الخصوصية</a></span></label>
       <label class="consentbox"><input type="checkbox" id="cp">
         <span><b>أوافق أيضًا</b> على نشر صور طفلي في أخبار الفصل — <b>اختياري</b>، ويمكنك إيقافه في أي وقت من الإعدادات دون أن يتأثر باقي التطبيق.</span></label>` : ''}
@@ -1078,6 +1121,8 @@ async function loadCore(){
 async function refresh(){
   if(S.profile && S.profile.role === 'bus'){
     await loadBusRoster();
+    await loadMyBusTrip();
+    await busCheckDone();
     S.children = []; S.attendance = {}; S.posts = []; S.absences = {}; S.pickups = {};
     S.linked = new Set();
     return;
@@ -1115,6 +1160,7 @@ async function refresh(){
     S.myChildren = S.children;
     S.myBus = {};
     if(mb) (mb.data||[]).forEach(r => S.myBus[r.child_id + '|' + r.trip] = r);
+    await loadParentBus();
   }
   // previewing another role: borrow the data that role would see
   if(S.preview === 'parent'){
@@ -1155,8 +1201,25 @@ function subscribe(){
       await refresh(); softRender();
     })
     .on('postgres_changes',{event:'*',schema:'public',table:'bus_logs'}, async () => {
-      if(S.profile.role === 'bus') { await loadBusRoster(); softRender(); }
+      if(S.profile.role === 'bus') { await loadBusRoster(); await busCheckDone(); softRender(); }
       else if(S.profile.role === 'parent'){ await refresh(); softRender(); }
+    })
+    // live bus location: a trip started/ended, and new positions (the database only sends a parent
+    // the rows for their own child's bus, and only while the trip is live)
+    .on('postgres_changes',{event:'*',schema:'public',table:'bus_trips'}, async () => {
+      if(S.profile.role === 'parent'){ await loadParentBus(); softRender(); }
+      else if(S.profile.role === 'bus'){ const had = S.busLive && S.busLive.id; await loadMyBusTrip();
+        if(had && !S.busLive) toast('انتهت الرحلة ووقف إرسال الموقع'); softRender(); }
+    })
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'bus_locations'}, p => {
+      const r = p.new;
+      if(S.profile.role !== 'parent' || !r || !r.trip_id) return;
+      const had = S.busLoc[r.trip_id];
+      if(had && had.recorded_at >= r.recorded_at) return;
+      S.busLoc[r.trip_id] = { trip_id:r.trip_id, lat:r.lat, lng:r.lng, recorded_at:r.recorded_at };
+      S.busRT = Date.now();
+      if(BM[r.trip_id] && BM[r.trip_id].map){ busMapMove(r.trip_id); paintBusAgo(); }
+      else softRender();                           // first position: draw the map
     })
     .subscribe();
 }
@@ -1307,6 +1370,314 @@ async function loadBusRoster(){
   const routes = [...new Set(S.busRoster.map(x=>x.bus_route).filter(Boolean))];
   if(S.busRoute && !routes.includes(S.busRoute)) S.busRoute = null;
 }
+
+/* ================= live bus location ================= */
+// The escort taps «ابدأ الرحلة»; her phone sends its position every ~15 s until the trip ends.
+// Parents of children on that route see the bus on a map, only while the trip is live.
+// A web page can't send its location from the background, so her screen must stay on.
+const BUS_SEND_MS = 15000;
+const BUS_LIVE_MS = 3 * 3600e3;          // a forgotten trip stops by itself (also enforced by the server)
+const BUS_END_KEY = DEMO ? 'kidora_bus_end_demo' : 'kidora_bus_end';
+const BUS_POLICY = '2026-10-14';         // privacy version that first mentions the bus location
+const LEAFLET = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/';
+const routeKey = (r) => r == null ? '' : String(r);
+function tripLive(t){
+  return !!t && !t.ended_at && t.day === today() && Date.now() - new Date(t.started_at).getTime() < BUS_LIVE_MS;
+}
+function minsAgo(iso){
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  return m < 1 ? 'الآن' : m === 1 ? 'قبل دقيقة' : m === 2 ? 'قبل دقيقتين' : m <= 10 ? 'قبل ' + m + ' دقائق' : 'قبل ' + m + ' دقيقة';
+}
+function tripTitle(t){ return BUS_TRIPS[t.trip] + (t.route ? ' · ' + t.route : ''); }
+
+// ---- escort: send the phone's position while her trip is live ----
+const G = { watch:null, timer:null, fix:null, sentTs:0, sentAt:0, err:null, busy:false, wake:null };
+
+async function loadMyBusTrip(){
+  if(S.preview || !S.profile){ S.busLive = null; return; }
+  const r = await safe(sb.from('bus_trips').select('*').eq('started_by', S.profile.id).eq('day', today()));
+  if(!r) return;                                   // offline: keep what we have
+  let t = (r.data || []).find(tripLive) || null;
+  let pend = null; try { pend = localStorage.getItem(BUS_END_KEY); } catch(_){}
+  if(pend){
+    // an «end trip» that didn't reach the server (no signal) — send it now
+    if(t && t.id === pend){ if(await safe(sb.rpc('bus_trip_end', { p_id: pend }))) t = null; else { S.busLive = null; stopSending(); return; } }
+    try { localStorage.removeItem(BUS_END_KEY); } catch(_){}
+  }
+  S.busLive = t;
+  if(t && !G.timer) startSending();               // app reopened mid-trip: carry on sending
+  if(!t && G.timer) stopSending();
+}
+
+function getFix(){
+  return new Promise(res => {
+    if(!('geolocation' in navigator)) return res({ err:'none' });
+    navigator.geolocation.getCurrentPosition(p => res({ pos:p }), e => res({ err: e && e.code === 1 ? 'denied' : 'nofix' }),
+      { enableHighAccuracy:true, timeout:15000, maximumAge:30000 });
+  });
+}
+function onFix(p){
+  G.fix = { lat:p.coords.latitude, lng:p.coords.longitude, acc:p.coords.accuracy, ts:p.timestamp || Date.now() };
+  G.err = null;
+  if(!G.sentAt) busTick();                         // first position goes out at once
+}
+function onGeoErr(e){ G.err = e && e.code === 1 ? 'denied' : 'nofix'; paintBusStatus(); }
+async function keepAwake(on){
+  try {
+    if(on && !G.wake && navigator.wakeLock && document.visibilityState === 'visible'){
+      G.wake = await navigator.wakeLock.request('screen');
+      G.wake.addEventListener('release', () => { G.wake = null; });
+    } else if(!on && G.wake){ const w = G.wake; G.wake = null; await w.release(); }
+  } catch(_){ G.wake = null; }
+}
+function startSending(pos){
+  stopSending();
+  if(pos) G.fix = { lat:pos.coords.latitude, lng:pos.coords.longitude, acc:pos.coords.accuracy, ts:pos.timestamp || Date.now() };
+  if('geolocation' in navigator)
+    G.watch = navigator.geolocation.watchPosition(onFix, onGeoErr, { enableHighAccuracy:true, maximumAge:10000, timeout:30000 });
+  G.timer = setInterval(busTick, BUS_SEND_MS);
+  keepAwake(true);
+  busTick();
+}
+function stopSending(){
+  if(G.watch != null && 'geolocation' in navigator) navigator.geolocation.clearWatch(G.watch);
+  if(G.timer) clearInterval(G.timer);
+  keepAwake(false);
+  Object.assign(G, { watch:null, timer:null, fix:null, sentTs:0, sentAt:0, err:null, busy:false });
+}
+async function busTick(){
+  const t = S.busLive;
+  if(!t){ stopSending(); return; }
+  if(!tripLive(t)){ await busEnd('expired'); return; }
+  if(G.fix && G.fix.ts > G.sentTs && !G.busy){
+    G.busy = true;
+    const f = G.fix;
+    let error = null;
+    try { ({ error } = await sb.from('bus_locations').insert({ trip_id:t.id, lat:f.lat, lng:f.lng, accuracy: f.acc ? Math.round(f.acc) : null })); }
+    catch(e){ error = { message:String(e && e.message || e) }; }
+    G.busy = false;
+    if(!error){ G.sentTs = f.ts; G.sentAt = Date.now(); }
+    else if(/TRIP_ENDED|NOT_ALLOWED|NO_TRIP|row-level security/i.test(error.message || '')){
+      // ended elsewhere (the director, or the 3-hour limit): stop sending at once
+      S.busLive = null; stopSending(); toast('انتهت الرحلة ووقف إرسال الموقع'); softRender(); return;
+    }
+  }
+  paintBusStatus();
+}
+function paintBusStatus(){
+  const e = document.getElementById('blstat');
+  if(!e) return;
+  let txt, warn = false;
+  if(G.err === 'denied'){ txt = '⚠️ إذن الموقع مقفل — ما نقدر نرسل مكان الباص'; warn = true; }
+  else if(!('geolocation' in navigator)){ txt = '⚠️ هالجهاز ما يدعم تحديد الموقع'; warn = true; }
+  else if(!G.sentAt){ txt = 'ننتظر إشارة الموقع…'; }
+  else if(Date.now() - G.sentAt > 60000){ txt = 'ما فيه إشارة؟ آخر إرسال ' + minsAgo(new Date(G.sentAt).toISOString()); warn = true; }
+  else txt = 'الموقع يوصل للأهالي · آخر إرسال الآن';
+  e.textContent = txt;
+  e.classList.toggle('warn', warn);
+}
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && S.busLive && G.timer){ keepAwake(true); busTick(); }
+});
+
+// pick the route when the escort's list holds more than one bus
+function busPickRoute(cb){
+  const keys = [...new Set(S.busRoster.map(k => routeKey(k.bus_route)))];
+  if(S.busRoute && keys.includes(S.busRoute)) return cb(S.busRoute);
+  if(keys.length === 1) return cb(keys[0]);
+  if(!keys.length){ toast('ما فيه أطفال مسجّلين في الحافلة'); return; }
+  openSheet(`<h3>أي حافلة؟</h3>
+    <p class="help">اختاري الحافلة اللي بتبدئين رحلتها.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">${keys.map((k, i) =>
+      `<button class="btn soft" data-i="${i}">${esc(k || 'الحافلة (بدون اسم)')}</button>`).join('')}</div>
+    <button class="btn soft sm" id="rpx">إلغاء</button>`);
+  sheetPanel.querySelector('#rpx').onclick = closeSheet;
+  sheetPanel.querySelectorAll('[data-i]').forEach(b => b.onclick = () => cb(keys[+b.dataset.i]));
+}
+const TRIP_ERR = { TRIP_TAKEN:'فيه مرافقة ثانية بدأت رحلة هالحافلة.', NO_ROUTE:'ما فيه أطفال مسجّلين على هالحافلة.', NOT_ALLOWED:'هالحساب ما يقدر يبدأ رحلة.' };
+function busStartSheet(){
+  if(previewBlock()) return;
+  busPickRoute(route => {
+    openSheet(`<h3>🚌 موقع الباص للأهالي</h3>
+      <p style="margin:0;line-height:1.8">عشان يشوف الأهالي وين الباص، نرسل موقع جوالك كل ١٥ ثانية <b>أثناء الرحلة فقط</b>. ويوقف الإرسال إذا أنهيتي الرحلة أو وصل كل الأطفال.</p>
+      <p class="help">بيطلب منك الجوال إذن الموقع — اختاري «السماح».</p>
+      <div id="bsmsg"></div>
+      <button class="btn bus" id="bsgo">السماح وابدأ الرحلة</button>
+      <button class="btn soft sm" id="bsx">إلغاء</button>`);
+    sheetPanel.querySelector('#bsx').onclick = closeSheet;
+    sheetPanel.querySelector('#bsgo').onclick = async (e) => {
+      const btn = e.currentTarget, msg = sheetPanel.querySelector('#bsmsg');
+      btn.disabled = true; msg.innerHTML = '';
+      const fx = await getFix();
+      if(fx.err === 'denied' || fx.err === 'none'){
+        btn.disabled = false;
+        msg.innerHTML = '<div class="err">' + (fx.err === 'none' ? 'هالجهاز ما يدعم تحديد الموقع.'
+          : 'ما وصلنا إذن الموقع. افتحي إعدادات ' + (IS_NATIVE ? 'الجوال ← كيدورا ← الموقع' : 'المتصفح ← الموقع') + ' واسمحي، ثم جرّبي مرة ثانية.')
+          + (IS_NATIVE ? '<br>وإذا ما ظهر طلب الإذن أبد، افتحي <b dir="ltr">kidora.answer.sa</b> من متصفح الجوال وابدئي الرحلة من هناك.' : '') + '</div>';
+        return;
+      }
+      const { data, error } = await sb.rpc('bus_trip_start', { p_trip: S.busTrip, p_route: route });
+      if(error || !data){
+        btn.disabled = false;
+        const code = Object.keys(TRIP_ERR).find(k => (error && error.message || '').includes(k));
+        msg.innerHTML = '<div class="err">' + esc(code ? TRIP_ERR[code] : 'تعذّر بدء الرحلة — تأكدي من الاتصال') + '</div>';
+        return;
+      }
+      S.busLive = data;
+      startSending(fx.pos);
+      closeSheet();
+      toast(fx.pos ? 'بدأت الرحلة — الأهالي يشوفون الباص الحين' : 'بدأت الرحلة — ننتظر إشارة الموقع');
+      render();
+    };
+  });
+}
+async function busEnd(why){
+  const t = S.busLive;
+  S.busLive = null; stopSending();                // stop sending first, whatever the network does
+  if(t && !(await safe(sb.rpc('bus_trip_end', { p_id: t.id })))){
+    try { localStorage.setItem(BUS_END_KEY, t.id); } catch(_){}
+  }
+  toast(why === 'done' ? 'وصل كل الأطفال — انتهت الرحلة ووقف إرسال الموقع'
+      : why === 'expired' ? 'مرّت ٣ ساعات على الرحلة — وقف إرسال الموقع'
+      : 'انتهت الرحلة ووقف إرسال الموقع');
+  softRender();
+}
+// every child on this bus marked arrived → the trip ends by itself
+async function busCheckDone(){
+  const t = S.busLive;
+  if(!t || S.busTrip !== t.trip) return;
+  const kids = S.busRoster.filter(k => routeKey(k.bus_route) === t.route);
+  const onBus = kids.filter(k => busState(k) === 'boarded').length;
+  const done  = kids.filter(k => busState(k) === 'arrived').length;
+  const absN  = kids.filter(k => k.absent && busState(k) === 'none').length;
+  if(kids.length && onBus === 0 && done > 0 && kids.length - done - absN === 0) await busEnd('done');
+}
+function busLiveCard(){
+  const t = S.busLive;
+  if(!t){
+    const c = el(`<div class="card buslive">
+      <div class="blhead"><span class="blic">🚌</span>
+        <div class="t"><b>موقع الباص للأهالي</b><span>اضغطي «ابدأ الرحلة» أول ما يتحرك الباص، ويشوف الأهالي مكانه على الخريطة.</span></div></div>
+      <button class="btn bus" id="blstart">ابدأ الرحلة</button></div>`);
+    c.querySelector('#blstart').onclick = busStartSheet;
+    return c;
+  }
+  const c = el(`<div class="card buslive on">
+    <div class="blhead"><span class="blic"><span class="livedot"></span></span>
+      <div class="t"><b>الرحلة شغّالة · ${esc(tripTitle(t))}</b><span id="blstat"></span></div></div>
+    <p class="blnote">📱 خلّي هالشاشة مفتوحة طول الرحلة. إذا قفلتي الجوال أو طلعتي من التطبيق، يوقف إرسال الموقع.</p>
+    <button class="btn soft" id="blend">إنهاء الرحلة</button></div>`);
+  c.querySelector('#blend').onclick = () => busEnd('manual');
+  setTimeout(paintBusStatus, 0);
+  return c;
+}
+
+// ---- parent: the bus on a map while the trip is live ----
+const BM = {};                                    // trip id → { node, map, marker, touched } — survives redraws
+let leafletP = null;
+function loadLeaflet(){
+  if(window.L && window.L.map) return Promise.resolve(window.L);
+  if(leafletP) return leafletP;
+  leafletP = new Promise(res => {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet'; css.href = LEAFLET + 'leaflet.css'; css.crossOrigin = 'anonymous';
+    css.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+    const js = document.createElement('script');
+    js.src = LEAFLET + 'leaflet.js'; js.crossOrigin = 'anonymous';
+    js.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+    js.onload = () => res(window.L || null);
+    js.onerror = () => { leafletP = null; res(null); };
+    document.head.appendChild(css); document.head.appendChild(js);
+  });
+  return leafletP;
+}
+async function loadParentBus(){
+  if(S.preview || !S.myChildren.some(c => c.rides_bus)){ S.busTrips = []; dropBusMaps(); return; }
+  const r = await safe(sb.from('bus_trips').select('id,kindergarten_id,route,trip,day,started_at,ended_at').eq('day', today()));
+  if(!r) return;
+  S.busTrips = r.data || [];
+  await Promise.all(S.busTrips.filter(tripLive).map(t => fetchBusLoc(t.id)));
+  dropBusMaps();
+}
+async function fetchBusLoc(tripId){
+  const l = await safe(sb.from('bus_locations').select('trip_id,lat,lng,recorded_at').eq('trip_id', tripId)
+    .order('recorded_at', { ascending:false }).limit(1));
+  const row = l && l.data && l.data[0];
+  const had = S.busLoc[tripId];
+  if(row && (!had || row.recorded_at > had.recorded_at)) S.busLoc[tripId] = row;
+  return S.busLoc[tripId];
+}
+function dropBusMaps(){
+  const live = new Set((S.busTrips || []).filter(tripLive).map(t => t.id));
+  Object.keys(BM).forEach(id => { if(!live.has(id)){ try { if(BM[id].map){ BM[id].map.stop(); BM[id].map.remove(); } } catch(_){} delete BM[id]; } });
+  Object.keys(S.busLoc).forEach(id => { if(!live.has(id)) delete S.busLoc[id]; });
+}
+function busMapNode(t){
+  let m = BM[t.id];
+  if(!m){
+    m = BM[t.id] = { node: el('<div class="bmmap" dir="ltr" role="img" aria-label="خريطة موقع الباص"></div>'), map:null, marker:null, touched:0 };
+    loadLeaflet().then(L => {
+      const loc = S.busLoc[t.id];
+      if(BM[t.id] !== m || m.map || !loc) return;
+      if(!L){ m.node.replaceWith(el('<div class="bmwait">تعذّر تحميل الخريطة — تأكد من الاتصال.</div>')); delete BM[t.id]; return; }
+      m.map = L.map(m.node, { attributionControl:true, scrollWheelZoom:false }).setView([loc.lat, loc.lng], 15);
+      m.map.attributionControl.setPrefix(false);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19,
+        attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>' }).addTo(m.map);
+      m.marker = L.marker([loc.lat, loc.lng], { keyboard:false, icon: L.divIcon({ className:'busmk', html:'<span>🚌</span>', iconSize:[40,40], iconAnchor:[20,20] }) }).addTo(m.map);
+      m.map.on('dragstart', () => { m.touched = Date.now(); });
+    });
+  }
+  requestAnimationFrame(() => { if(BM[t.id] === m && m.map && document.contains(m.node)) m.map.invalidateSize(); });
+  return m.node;
+}
+function busMapMove(tripId){
+  const m = BM[tripId], loc = S.busLoc[tripId];
+  if(!m || !m.map || !loc) return;
+  m.marker.setLatLng([loc.lat, loc.lng]);
+  if(Date.now() - m.touched > 30000 && document.contains(m.node)) m.map.panTo([loc.lat, loc.lng]);   // follow the bus unless the parent is looking around
+}
+function paintBusAgo(){
+  document.querySelectorAll('.bmupd[data-trip]').forEach(e => {
+    const loc = S.busLoc[e.dataset.trip];
+    if(!loc){ e.textContent = ''; return; }
+    const stale = Date.now() - new Date(loc.recorded_at).getTime() > 120000;
+    e.textContent = 'آخر تحديث ' + minsAgo(loc.recorded_at) + (stale ? ' — ممكن الباص في مكان إشارته ضعيفة' : '');
+    e.classList.toggle('stale', stale);
+  });
+}
+function busMapCard(t){
+  const loc = S.busLoc[t.id];
+  const c = el(`<div class="card busmap">
+    <div class="bmhead"><h3>🚌 موقع الباص</h3><span class="livetag"><span class="livedot"></span>مباشر</span></div>
+    <p class="help">${esc(tripTitle(t))}</p>
+    <div class="bmslot"></div>
+    <p class="bmupd" data-trip="${esc(t.id)}"></p></div>`);
+  const slot = c.querySelector('.bmslot');
+  if((S.policySeen || '') < BUS_POLICY){          // shown only after the parent accepted the policy that mentions it
+    slot.replaceWith(el(`<div class="bmwait">${S.consentGiven ? 'وافق على تحديث الخصوصية فوق، ويظهر لك موقع الباص.'
+      : 'وافق على سياسة الخصوصية من الإعدادات، ويظهر لك موقع الباص.'}</div>`));
+  } else if(loc){
+    slot.replaceWith(busMapNode(t));
+  } else {
+    slot.replaceWith(el('<div class="bmwait">بدأت الرحلة — ننتظر أول موقع من الباص…</div>'));
+  }
+  setTimeout(paintBusAgo, 0);
+  return c;
+}
+// every 15 s while a map is on screen: refresh the "last update" text, and fetch the position
+// ourselves if the live channel has gone quiet (bad network, demo mode)
+setInterval(async () => {
+  if(!S.profile || actingRole() !== 'parent' || document.visibilityState !== 'visible') return;
+  const live = (S.busTrips || []).filter(tripLive);
+  if(!live.length){ if(Object.keys(BM).length){ dropBusMaps(); softRender(); } return; }
+  if(Date.now() - (S.busRT || 0) > 30000){
+    let redraw = false;
+    for(const t of live){ const had = !!S.busLoc[t.id]; await fetchBusLoc(t.id); if(!had && S.busLoc[t.id]) redraw = true; else busMapMove(t.id); }
+    if(redraw) softRender();
+  }
+  paintBusAgo();
+}, BUS_SEND_MS);
 
 function statusOf(childId){
   const a = S.attendance[childId];
@@ -1464,6 +1835,8 @@ function viewBus(){
     wrap.appendChild(chips);
   }
 
+  wrap.appendChild(busLiveCard());
+
   const kids = S.busRoster.filter(k => !S.busRoute || k.bus_route === S.busRoute);
   const onBus = kids.filter(k => busState(k)==='boarded').length;
   const done  = kids.filter(k => busState(k)==='arrived').length;
@@ -1511,6 +1884,7 @@ function viewBus(){
       toast(s2==='boarded' ? 'ركب ' + first(k.full_name) + ' الحافلة — أُشعر ولي الأمر'
           : s2==='arrived' ? (S.busTrip==='am' ? 'وصل ' : 'وصل ') + first(k.full_name) + (S.busTrip==='am'?' الروضة':' المنزل') + ' — أُشعر ولي الأمر'
           : 'تم إلغاء التسجيل');
+      await busCheckDone();
       render();
     };
     roster.appendChild(b);
@@ -1921,8 +2295,10 @@ function drSummary(u){
 function policyCard(){
   if(!S.consentGiven || !S.policySeen || S.policySeen >= POLICY_VERSION || S.preview) return null;
   const c = el(`<div class="card policyup"><h3>تحديث سياسة الخصوصية</h3>
-    <p class="help" style="margin:0">أضفنا: <b>رسائلك للروضة</b> (اختيارية، تُحذف بعد ١٨٠ يومًا)، و<b>رمز الاستلام</b> عند تفويض شخص آخر، و<b>تقارير أعطال تقنية</b> بدون بيانات طفلك.
-    وأصبحت الصور تُحذف تلقائيًا بعد مدة الحفظ، ونزيل منها موقع التصوير قبل رفعها. اختيارك لنشر الصور يبقى كما هو.</p>
+    <p class="help" style="margin:0">أضفنا: <b>موقع الباص المباشر</b> — يشوف أهالي ركّاب الحافلة مكانها على الخريطة أثناء الرحلة فقط، من جوال مرافقة الحافلة، ويُحذف بعد ٣ أيام. ما نتتبّع موقعك ولا موقع طفلك.</p>
+    ${S.policySeen < '2026-10-09' ? `<p class="help" style="margin:0">ومن قبل: <b>رسائلك للروضة</b> (اختيارية، تُحذف بعد ١٨٠ يومًا)، و<b>رمز الاستلام</b> عند تفويض شخص آخر، و<b>تقارير أعطال تقنية</b> بدون بيانات طفلك.
+    وأصبحت الصور تُحذف تلقائيًا بعد مدة الحفظ، ونزيل منها موقع التصوير قبل رفعها.</p>` : ''}
+    <p class="help" style="margin:0">اختيارك لنشر الصور يبقى كما هو.</p>
     <div class="actions2"><button class="btn sm" id="pok">موافق</button>
     <a class="btn soft sm" href="${POLICY_URL}" target="_blank" rel="noopener">اقرأ السياسة</a></div></div>`);
   c.querySelector('#pok').onclick = async (e) => {
@@ -1943,6 +2319,7 @@ function viewParent(){
     wrap.appendChild(add0);
     return wrap;
   }
+  const busShown = new Set();
   S.myChildren.forEach(c => {
     const st = statusOf(c.id);
     const cls = S.classes.find(x=>x.id===c.class_id);
@@ -2016,6 +2393,14 @@ function viewParent(){
         <span class="t">${ICONS.car} ${esc(txt)} · ${esc(fmtTime(t))}</span>
       </div>`));
     });
+
+    // where the bus is right now, while its trip is live (one map per bus, even for siblings)
+    if(c.rides_bus){
+      (S.busTrips || []).filter(t => tripLive(t) && t.route === routeKey(c.bus_route) && !busShown.has(t.id)).forEach(t => {
+        busShown.add(t.id);
+        wrap.appendChild(busMapCard(t));
+      });
+    }
 
     // who is collecting the child today
     const pk = pickupOf(c.id, today());
@@ -3919,7 +4304,7 @@ function viewSettings(){
       pv.appendChild(wd0);
     } else {
       pv.appendChild(el(`<div class="switchrow"><div class="t"><b>البيانات الأساسية</b>
-        <span>الاسم، الفصل، الحضور والغياب، رحلات الحافلة. لازمة لتشغيل الخدمة.</span></div>
+        <span>الاسم، الفصل، الحضور والغياب، رحلات الحافلة وموقعها أثناء الرحلة. لازمة لتشغيل الخدمة.</span></div>
         <span class="tagx free">مُفعّلة</span></div>`));
 
       const ph = el(`<div class="switchrow"><div class="t"><b>نشر صور طفلي</b>
@@ -4262,7 +4647,7 @@ async function boot(){
 }
 // a cheap fingerprint of what's on screen, so the timer redraws only on real change
 function stateSig(){
-  try { return JSON.stringify([S.attendance, S.absences, S.pickups, S.myBus,
+  try { return JSON.stringify([S.attendance, S.absences, S.pickups, S.myBus, (S.busTrips||[]).map(t => t.id + '|' + t.ended_at), S.busLive && S.busLive.id,
     (S.posts||[]).map(p=>p.id), (S.updates||[]).map(u=>u.child_id+'|'+u.updated_at),
     (S.children||[]).length]); } catch(_){ return String(Math.random()); }
 }
