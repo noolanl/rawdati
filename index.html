@@ -1243,7 +1243,7 @@ function nextState(cur){ return cur === 'out' ? 'in' : cur === 'in' ? 'left' : '
 
 function queueTap(childId, want){
   const q = queueGet().filter(x => x.child_id !== childId);
-  q.push({ child_id: childId, want, ts: Date.now() });
+  q.push({ child_id: childId, want, ts: Date.now(), day: today() });
   queueSet(q);
   S.pending.add(childId);
 }
@@ -1257,8 +1257,12 @@ async function flushQueue(){
   (at.data || []).forEach(r => cur[r.child_id] = r);
 
   const rest = [];
-  let done = 0;
+  let done = 0, stale = 0;
   for(const it of q){
+    // a tap from an earlier day (phone offline overnight) must not land on today's attendance
+    // or send parents a «وصل/غادر» now
+    const tapDay = it.day || new Date(it.ts || 0).toLocaleDateString('en-CA', { timeZone:'Asia/Riyadh' });
+    if(tapDay !== today()){ stale++; continue; }
     // the tap may have reached the server before the connection dropped
     if(stateOfRow(cur[it.child_id]) === it.want){ done++; continue; }
     let row = cur[it.child_id], guard = 0, ok = false;
@@ -1277,6 +1281,7 @@ async function flushQueue(){
   }
   queueSet(rest);
   S.pending = new Set(rest.map(x => x.child_id));
+  if(stale && !done){ toast(stale + ' تسجيل من يوم سابق ما وصل للإنترنت، وما سجّلناه على اليوم'); render(); }
   if(done){ toast('تم إرسال ' + done + ' تسجيل كان محفوظًا على الجهاز'); await refresh(); render(); }
 }
 window.addEventListener('online', () => flushQueue());
