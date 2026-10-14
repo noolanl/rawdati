@@ -54,7 +54,7 @@ button,.btn{font:inherit;font-weight:700;font-size:17px;border:0;border-radius:1
   var el = document.getElementById('code'), btn = document.getElementById('copy');
   if(!ok){ el.textContent = '—'; btn.outerHTML = '<div class="err">الرابط ناقص. اكتب الرمز الموجود في البطاقة بنفسك.</div>'; return; }
   el.textContent = code;
-  document.getElementById('web').href = 'https://kidora.answer.sa/?code=' + encodeURIComponent(code);
+  document.getElementById('web').href = 'https://kidora.answer.sa/#code=' + encodeURIComponent(code);
   function done(){ btn.textContent = '✓ تم النسخ — الصقه عند التسجيل'; btn.className = 'done'; }
   function fallback(){
     var t = document.createElement('textarea'); t.value = code; t.setAttribute('readonly', '');

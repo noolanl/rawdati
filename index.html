@@ -4688,7 +4688,9 @@ async function boot(){
     }
   }
   {
-    const qs = new URLSearchParams(location.search), c = (qs.get('code')||'').trim().toUpperCase();
+    // the join code comes in the #fragment (never sent to a server) — ?code= still works for old links
+    const qs = new URLSearchParams(location.search), hs = new URLSearchParams((location.hash || '').slice(1));
+    const c = (qs.get('code') || hs.get('code') || '').trim().toUpperCase();
     if(/^[A-Z]-[A-Z0-9]{4,16}$/.test(c)){
       try { sessionStorage.setItem('kidora_code', c); } catch(_){}
       qs.delete('code'); history.replaceState(null, '', location.pathname + (qs.toString() ? '?' + qs : ''));
