@@ -24,7 +24,7 @@
   --surface:#FFFFFF;
   --sunken:#EDF3F8;
   --ink:#22374A;
-  --ink-2:#7791A6;
+  --ink-2:#556D81;     /* muted text: 4.6:1 or more on white and every soft tint (was #7791A6, 3.3:1) */
   --line:#E4EEF6;
 
   --pink:#E0206E;      --pink-soft:#FDE7F0;   --pink-ink:#A5124F;
@@ -103,7 +103,7 @@ html.authmode .auth{height:100%;min-height:0;overflow-y:auto;-webkit-overflow-sc
 .demorole span{font-size:12.5px;color:var(--ink-2)}
 .demorole:active{border-color:var(--pink)}
 .demobar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
-  padding:calc(8px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 14px 8px;background:var(--yellow-soft);color:var(--yellow-ink);font-size:12.5px;font-weight:600}
+  padding:calc(8px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) 14px 8px;background:var(--yellow-soft);color:#7A5600;font-size:12.5px;font-weight:600}   /* yellow-ink is 4.2:1 here; small text needs 4.5 */
 .demobar span{flex:1;min-width:150px}
 .demobar button{border:none;background:rgba(0,0,0,.06);color:inherit;font:inherit;font-weight:700;border-radius:999px;padding:5px 12px;cursor:pointer}
 body:has(.demobar) .topbar{position:relative;padding-top:12px !important}
@@ -142,7 +142,7 @@ body:has(.demobar) .topbar{position:relative;padding-top:12px !important}
 .btn.soft{background:var(--sunken);color:var(--ink);box-shadow:none}
 .btn.sm{padding:11px 16px;font-size:14.5px}
 .btn svg{width:17px;height:17px}
-.linkbtn{background:none;border:none;color:var(--blue);cursor:pointer;font-weight:600;font-size:13.5px;padding:0}
+.linkbtn{background:none;border:none;color:var(--blue-ink);cursor:pointer;font-weight:600;font-size:13.5px;padding:0}
 
 /* ===== pieces ===== */
 .card{background:var(--surface);border-radius:var(--r-lg);padding:17px;display:flex;flex-direction:column;gap:11px;box-shadow:var(--shadow-sm)}
@@ -154,7 +154,7 @@ body:has(.demobar) .topbar{position:relative;padding-top:12px !important}
   border:none;background:transparent;border-radius:999px;padding:9px 16px;white-space:nowrap;
   cursor:pointer;font-weight:600;font-size:13.5px;color:var(--ink-2);transition:.2s;
 }
-.chip[aria-pressed="true"]{background:var(--surface);color:var(--blue);box-shadow:var(--shadow-sm)}
+.chip[aria-pressed="true"]{background:var(--surface);color:var(--blue-ink);box-shadow:var(--shadow-sm)}
 
 .counter{display:flex;gap:9px}
 .pill{flex:1;border-radius:var(--r-md);padding:12px 13px;display:flex;flex-direction:column;background:var(--surface);box-shadow:var(--shadow-sm)}
@@ -407,8 +407,8 @@ main{padding-bottom:max(100px, calc(84px + var(--safe-area-inset-bottom, env(saf
 .cardthumb canvas{display:block;width:100%;height:auto;border-radius:12px;box-shadow:var(--shadow-sm);outline:3px solid transparent;transition:outline-color .15s}
 .cardthumb .pick[aria-pressed="true"] canvas{outline-color:var(--pink)}
 .cardthumb .pick:focus-visible canvas{outline-color:var(--blue,#2A8BD8)}
-.cardthumb .tick{position:absolute;top:8px;left:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid #cfc3ca;display:grid;place-items:center;font:700 15px/1 sans-serif;color:#fff}
-.cardthumb .pick[aria-pressed="true"] .tick{background:var(--pink);border-color:var(--pink)}
+.cardthumb .tick{position:absolute;top:8px;left:8px;width:26px;height:26px;border-radius:50%;background:#fff;border:2px solid #cfc3ca;display:grid;place-items:center;font:700 15px/1 sans-serif;color:transparent}
+.cardthumb .pick[aria-pressed="true"] .tick{background:var(--pink);border-color:var(--pink);color:#fff}
 .cardthumb .nm2{font-weight:600;color:var(--ink,#241820)}
 .cardthumb .snd{font-size:12.5px;padding:7px 8px;text-decoration:none;text-align:center}
 .cardthumb .snd.done{background:var(--green-soft);color:var(--green-ink)}
@@ -3203,7 +3203,7 @@ function dangerZone(){
     <h3>حذف جميع الأطفال</h3>
     <p class="help">يحذف <b>${kidsWord(n)}</b> مع سجلات الحضور والغياب والاستلام والحافلة وروابط أولياء الأمور وأكواد الدعوة الخاصة بهم.
     تبقى الفصول وحسابات المعلمات والمنشورات كما هي. لا يمكن التراجع.</p>
-    <button class="btn soft sm" id="wipe" style="color:var(--pink)">حذف جميع الأطفال…</button>
+    <button class="btn soft sm" id="wipe" style="color:var(--pink-ink)">حذف جميع الأطفال…</button>
   </div>`);
   card.querySelector('#wipe').onclick = wipeChildrenSheet;
   return card;
@@ -3770,7 +3770,7 @@ function classDangerZone(){
     <p class="help">يحذف <b>${n}</b> ${n===1?'فصلًا':'فصول'} مع إعلانات كل فصل وارتباط المعلمات به.
     ${assigned ? `<b>${kidsWord(assigned)}</b> سيبقون في السجل بدون فصل.` : 'لا يوجد أطفال مرتبطون بها حاليًا.'}
     عند استيراد قائمة الأطفال تُنشأ الفصول تلقائيًا من عمود الفصل. لا يمكن التراجع.</p>
-    <button class="btn soft sm" id="wipec" style="color:var(--pink)">حذف جميع الفصول…</button>
+    <button class="btn soft sm" id="wipec" style="color:var(--pink-ink)">حذف جميع الفصول…</button>
   </div>`);
   card.querySelector('#wipec').onclick = wipeClassesSheet;
   return card;
@@ -4194,7 +4194,7 @@ function staffSheet(p){
       <div id="tcls" class="chips" style="flex-wrap:wrap">${S.classes.map(c => `<button class="chip" data-c="${c.id}" aria-pressed="false">${esc(c.name)}</button>`).join('')}</div>
       <button class="btn sm" id="tsave" style="margin-top:10px">حفظ الفصول</button></div>` : ''}
     <button class="btn soft" id="spw">إعادة تعيين كلمة المرور</button>
-    ${self || p.role==='admin' ? '' : '<button class="btn soft" id="sdel" style="color:var(--pink)">حذف الحساب نهائيًا</button>'}
+    ${self || p.role==='admin' ? '' : '<button class="btn soft" id="sdel" style="color:var(--pink-ink)">حذف الحساب نهائيًا</button>'}
     <button class="btn soft sm" id="sx">إغلاق</button>
   `);
   sheetPanel.querySelector('#sx').onclick = closeSheet;
@@ -4270,7 +4270,7 @@ function guardianSheet(child, g){
     <div id="gmsg"></div>
     <button class="btn soft" id="gpw">إعادة تعيين كلمة المرور</button>
     <button class="btn soft" id="gunlink">فصل عن ${esc(first(child.full_name))}</button>
-    <button class="btn soft" id="gdel" style="color:var(--pink)">حذف الحساب نهائيًا</button>
+    <button class="btn soft" id="gdel" style="color:var(--pink-ink)">حذف الحساب نهائيًا</button>
     <button class="btn soft sm" id="gx">إغلاق</button>
   `);
   sheetPanel.querySelector('#gx').onclick = closeSheet;
@@ -4510,7 +4510,7 @@ function viewSettings(){
     const da = el(`<div class="card danger">
       <h3>حذف حسابي</h3>
       <p class="help">يحذف حسابك وكلمة مرورك وإشعاراتك نهائيًا. سجلّات الحضور والأنشطة التي تخصّ الروضة تبقى لديها كسجلّ رسمي.</p>
-      <button class="btn soft sm" id="dme" style="color:var(--pink)">حذف حسابي نهائيًا…</button>
+      <button class="btn soft sm" id="dme" style="color:var(--pink-ink)">حذف حسابي نهائيًا…</button>
     </div>`);
     da.querySelector('#dme').onclick = deleteMyAccountSheet;
     wrap.appendChild(da);
