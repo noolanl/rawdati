@@ -738,7 +738,7 @@ function makeDemoClient(role){
 const sb = DEMO ? makeDemoClient(DEMO) : supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ---------- error reports: unexpected JS errors go to the server (max 5 per session, no personal data) ---------- */
-const APP_VERSION = '2026.10.14';
+const APP_VERSION = '2026.10.15';
 (() => {
   if(DEMO) return;
   const seen = new Set(); let sent = 0;
