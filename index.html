@@ -853,8 +853,18 @@ function applyBrand(){
 
 // parents sign in with a phone number; it maps to an internal address Supabase understands
 const LOGIN_DOMAIN = 'wali.mubdioon.sa';
+// Arabic keyboards type ٠٥٥… (or ۰۵۵…): read them as 055… before anything else, like normPhone() below
+function latinDigits(v){
+  return String(v||'').replace(/[٠-٩]/g, x => '٠١٢٣٤٥٦٧٨٩'.indexOf(x)).replace(/[۰-۹]/g, x => '۰۱۲۳۴۵۶۷۸۹'.indexOf(x));
+}
+// a join code as the person typed it → as stored: Arabic digits, spaces and a missing dash are forgiven (p abcd٢٣٤٥ → P-ABCD2345)
+function cleanCode(v){
+  let c = latinDigits(v).replace(/\s+/g, '').replace(/[–—_]/g, '-').toUpperCase();
+  if(/^[PSA][A-Z0-9]{6,10}$/.test(c)) c = c[0] + '-' + c.slice(1);
+  return c;
+}
 function normalisePhone(v){
-  let d = String(v||'').replace(/[^\d+]/g,'');
+  let d = latinDigits(v).replace(/[^\d+]/g,'');
   if(d.startsWith('+')) d = d.slice(1);
   if(d.startsWith('00')) d = d.slice(2);
   if(d.startsWith('966')) return d;
@@ -1012,7 +1022,7 @@ function renderAuth(mode){
     try{
       if(mode==='up'){
         const full_name = v.querySelector('#nm').value.trim();
-        const code = v.querySelector('#cd').value.trim().toUpperCase();
+        const code = cleanCode(v.querySelector('#cd').value);
         if(phone && phone.length < 12){ throw new Error('رقم الجوال غير صحيح. مثال: 0551234567'); }
         if(password.length < 8){ throw new Error('كلمة المرور يجب أن تكون ٨ أحرف على الأقل.'); }
         if(password !== v.querySelector('#pw2').value){ throw new Error('كلمتا المرور غير متطابقتين.'); }
@@ -1101,7 +1111,7 @@ function renderNeedsCode(errMsg, codeVal){
   v.querySelector('#f').onsubmit = async (e)=>{
     e.preventDefault();
     const btn=e.target.querySelector('button'); btn.disabled=true;
-    const { error } = await sb.rpc('redeem_invite',{ p_code: v.querySelector('#cd').value.trim().toUpperCase() });
+    const { error } = await sb.rpc('redeem_invite',{ p_code: cleanCode(v.querySelector('#cd').value) });
     if(error){ v.querySelector('#msg').innerHTML='<div class="err">' + esc(codeErrText(error.message)) + '</div>'; btn.disabled=false; return; }
     clearPendingCode();
     boot();
@@ -2511,7 +2521,7 @@ function linkSiblingSheet(){
   sheetPanel.querySelector('#acf').onsubmit = async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button'); btn.disabled = true; btn.textContent = 'جارٍ الإضافة…';
-    const code = sheetPanel.querySelector('#acc').value.trim().toUpperCase();
+    const code = cleanCode(sheetPanel.querySelector('#acc').value);
     const { data, error } = await sb.rpc('add_child_code', { p_code: code });
     if(error){
       const m = String(error.message||'');
@@ -2598,8 +2608,7 @@ function noteSheet(child){
 function pickupWaUrl(child, pk){
   const msg = `رمز استلام ${first(child.full_name)} اليوم من ${brandName()}: ${pk.pin}\n` +
               `أخبر المعلمة بهذا الرمز عند الاستلام.`;
-  const ph = String(pk.phone || '').replace(/\D/g, '');
-  const intl = /^05\d{8}$/.test(ph) ? '966' + ph.slice(1) : /^9665\d{8}$/.test(ph) ? ph : '';
+  const intl = normPhone(pk.phone) || '';   // also ٠٥٥… typed on an Arabic keyboard
   return 'https://wa.me/' + intl + '?text=' + encodeURIComponent(msg);
 }
 function pickupSheet(child){
