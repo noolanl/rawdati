@@ -3834,9 +3834,9 @@ function classSheet(c){
 
 /* ---------- staff ---------- */
 // a staff join code as a ready WhatsApp message (no number: the director picks the chat)
-function staffCodeWa(code, role){
+function staffCodeWa(code, role, kgName){
   const who = role === 'bus' ? 'مرافقة الحافلة' : role === 'admin' ? 'الإدارة' : 'المعلمة';
-  const text = `السلام عليكم، هذا رمز دخولك (${who}) في ${brandName()} على تطبيق «كيدورا»: ${code}\n` +
+  const text = `السلام عليكم، هذا رمز دخولك (${who}) في ${kgName || brandName()} على تطبيق «كيدورا»: ${code}\n` +
     `١) حمّلي التطبيق — آيفون: ${CARD_IOS}\nأندرويد: ${CARD_PLAY}\n` +
     `٢) اختاري «حساب جديد» وسجّلي باسمك ورقم جوالك.\n٣) اكتبي الرمز. الرمز لك وحدك.`;
   return 'https://wa.me/?text=' + encodeURIComponent(text);
@@ -3971,7 +3971,7 @@ function viewPlatform(){
   S.tenants.forEach(t => {
     const b = el(`<button class="row">
       <img src="${esc(t.logo_url||'logo.png')}" alt="" style="width:38px;height:38px;border-radius:12px;object-fit:contain;background:#fff;flex:none">
-      <span class="nm"><b>${esc(t.name)}</b><span>${esc(t.slug||'—')}.answer.sa · ${t.children} طفل · ${t.parents} ولي أمر</span></span>
+      <span class="nm"><b>${esc(t.name)}</b><span>${esc(t.slug||'—')} · ${t.children} طفل · ${t.parents} ولي أمر</span></span>
       <span class="tagx">الهوية</span>
     </button>`);
     b.onclick = () => tenantSheet(t);
@@ -3980,9 +3980,10 @@ function viewPlatform(){
   wrap.appendChild(list);
 
   wrap.appendChild(el(`<div class="card"><h3>كيف تُضاف روضة جديدة</h3>
-    <p class="help">١. أضف الروضة هنا.<br>
-    ٢. أعطِ المديرة رمز الدخول — تحمّل تطبيق كيدورا (أو تفتح kidora.answer.sa) وتبني فصولها وأطفالها بنفسها.<br>
-    التطبيق واحد للجميع؛ بعد الدخول يظهر اسم الروضة وشعارها.</p></div>`));
+    <p class="help">١. أضف الروضة هنا — يطلع لك رمز المديرة.<br>
+    ٢. لو بتجهّزها عنهم: انتقل إليها، ثم الأطفال ← «استيراد قائمة» (ملف Excel)، ثم المعلمات ← رموز المعلمات ومرافقة الحافلة. وإلا تبنيها المديرة بنفسها.<br>
+    ٣. ارجع لروضتك، وأعطِ المديرة رمزها — تحمّل تطبيق كيدورا (أو تفتح kidora.answer.sa) وتسجّل به.<br>
+    التطبيق والرابط واحد للجميع؛ بعد الدخول يظهر اسم الروضة وشعارها.</p></div>`));
   return wrap;
 }
 
@@ -3990,8 +3991,8 @@ function newTenantSheet(){
   openSheet(`
     <h3>روضة جديدة</h3>
     <div class="field"><label for="tn">اسم الروضة</label><input id="tn" placeholder="روضة ..."></div>
-    <div class="field"><label for="ts">النطاق الفرعي</label><input id="ts" placeholder="mubdioon" style="direction:ltr;text-align:left">
-      <p class="help">حروف إنجليزية صغيرة فقط. سيصبح الرابط: <span dir="ltr">اسم.answer.sa</span></p></div>
+    <div class="field"><label for="ts">معرّف قصير</label><input id="ts" placeholder="alnoor" style="direction:ltr;text-align:left">
+      <p class="help">حروف إنجليزية صغيرة فقط، للتمييز داخليًا — ما يظهر للأهالي. الرابط للجميع: <span dir="ltr">kidora.answer.sa</span></p></div>
     <div class="field"><label for="tt">الوصف</label><input id="tt" value="تطبيق التواصل بين الروضة وأولياء الأمور"></div>
     <div id="tmsg"></div>
     <button class="btn" id="tsave">إنشاء</button>
@@ -4015,9 +4016,9 @@ function newTenantSheet(){
     const row = Array.isArray(r.data) ? r.data[0] : r.data;
     await loadTenants();
     openSheet(`<h3>تم إنشاء ${esc(name)}</h3>
-      <p class="help">أعطِ هذا الرمز لمديرة الروضة لتسجّل حسابها.</p>
-      <div class="codebox"><b>${esc(row.code)}</b><button id="tc">نسخ</button></div>
-      <p class="help">ثم أضف سجل CNAME في Cloudflare: <span dir="ltr">${esc(slug)}</span> ← <span dir="ltr">noolanl.github.io</span></p>
+      <p class="help">أعطِ هذا الرمز لمديرة الروضة لتسجّل حسابها. يُستخدم مرة واحدة.</p>
+      <div class="codebox"><b>${esc(row.code)}</b><button id="tc">نسخ</button><a class="wa" target="_blank" rel="noopener" href="${esc(staffCodeWa(row.code, 'admin', name))}">واتساب</a></div>
+      <p class="help">ما يحتاج أي إعداد في النطاق: المديرة تدخل من تطبيق كيدورا أو <span dir="ltr">kidora.answer.sa</span>.</p>
       <button class="btn" id="td">تم</button>`);
     sheetPanel.querySelector('#tc').onclick = (ev)=>copyText(row.code, ev.target);
     sheetPanel.querySelector('#td').onclick = ()=>{ closeSheet(); render(); };
