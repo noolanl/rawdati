@@ -1023,11 +1023,11 @@ function renderAuth(mode){
       if(mode==='up'){
         const full_name = v.querySelector('#nm').value.trim();
         const code = cleanCode(v.querySelector('#cd').value);
-        if(phone && phone.length < 12){ throw new Error('رقم الجوال غير صحيح. مثال: 0551234567'); }
+        if(isPhone(raw) && (!phone || phone.length < 12)){ throw new Error('رقم الجوال غير صحيح. مثال: 0551234567'); }
         if(password.length < 8){ throw new Error('كلمة المرور يجب أن تكون ٨ أحرف على الأقل.'); }
         if(password !== v.querySelector('#pw2').value){ throw new Error('كلمتا المرور غير متطابقتين.'); }
         const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ full_name, phone } } });
-        if(error) throw error;
+        if(error) throw new Error(authErrText(error.message));
         if(!data.session){ msg.innerHTML = '<div class="ok">تم إنشاء الحساب. سجّل الدخول الآن.</div>'; btn.disabled=false; return; }
         const { error: e2 } = await sb.rpc('redeem_invite', { p_code: code });
         if(e2){
@@ -1041,8 +1041,9 @@ function renderAuth(mode){
         const photoOk = !!(v.querySelector('#cp') && v.querySelector('#cp').checked);
         await safe(sb.rpc('set_consent', { p_photo: photoOk, p_version: POLICY_VERSION }));
       } else {
+        if(isPhone(raw) && !phone) throw new Error('رقم الجوال غير صحيح. مثال: 0551234567');
         const { error } = await sb.auth.signInWithPassword({ email, password });
-        if(error) throw new Error('رقم الجوال أو كلمة المرور غير صحيحة.');
+        if(error) throw new Error(/fetch|network|load failed|timeout/i.test(error.message || '') ? authErrText(error.message) : 'رقم الجوال أو كلمة المرور غير صحيحة.');
       }
       await boot();
     }catch(err){
@@ -1082,6 +1083,17 @@ function renderOffline(){
   window.addEventListener('online', again);
 }
 
+// Supabase answers sign-up problems in English — show them in Arabic, with what to do next
+function authErrText(m){
+  m = String(m || '');
+  return /already registered|already been registered|already exists/i.test(m) ? 'هذا الرقم مسجّل من قبل. اختر «تسجيل الدخول» بنفس الرقم، وبعدها اضغط «+ إضافة طفل آخر» في «طفلي» واكتب الرمز.'
+       : /validate email|invalid format|invalid email/i.test(m) ? 'رقم الجوال غير صحيح. اكتبه مثل: 0551234567'
+       : /password/i.test(m) ? 'كلمة المرور قصيرة أو ضعيفة. اكتب ٨ أحرف على الأقل.'
+       : /rate limit|too many|security purposes/i.test(m) ? 'محاولات كثيرة. انتظر دقيقة وجرّب مرة ثانية.'
+       : /fetch|network|load failed|timeout/i.test(m) ? 'ما قدرنا نتصل. تأكد من الإنترنت وجرّب مرة ثانية.'
+       : /[\u0600-\u06FF]/.test(m) ? m
+       : 'تعذّر إنشاء الحساب. جرّب مرة ثانية، وإذا تكرر تواصل مع الروضة.';
+}
 function codeErrText(m){
   m = String(m || '');
   return m.includes('ALREADY_USED') ? 'هذا الرمز استُخدم لعدد أولياء الأمور المسموح. اطلب رمزًا جديدًا من الروضة.'
