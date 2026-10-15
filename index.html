@@ -2019,7 +2019,7 @@ async function dailyReportSheet(){
 
   if(!S.upKids.length){
     openSheet(`<h3>تقرير اليوم</h3>
-      <div class="err">لا توجد فصول مسندة إليك بعد. تطلب المديرة إسنادك إلى فصل من شاشة «الفصول».</div>
+      <div class="err">لا يوجد أطفال في فصولك بعد. تضيف المديرة الأطفال من «الأطفال»، وتحدد فصول كل معلمة من «المعلمات».</div>
       <button class="btn soft sm" id="drx">إغلاق</button>`);
     sheetPanel.querySelector('#drx').onclick = closeSheet;
     return;
@@ -2053,7 +2053,7 @@ function drRender(st){
 function drStepPick(st){
   const classes = drClasses();
   openSheet(`<h3>تقرير اليوم</h3>
-    <p class="help">اختر الأطفال، ثم اكتب ما جرى في يومهم. يصل التقرير لأولياء أمورهم فقط.</p>
+    <p class="help">اختاري الأطفال، ثم اكتبي ما جرى في يومهم. يصل التقرير لأولياء أمورهم فقط.</p>
     <div id="drchips"></div>
     <div class="actions2" style="margin-bottom:4px">
       <button class="btn soft sm" id="drall">تحديد الكل</button>
@@ -2296,7 +2296,7 @@ async function drSubmit(st){
 
     if(st.mode === 'bulk'){
       const d = st.bulk;
-      if(!drFilled(d)) return fail('اكتب شيئًا واحدًا على الأقل قبل الإرسال.');
+      if(!drFilled(d)) return fail('اكتبي شيئًا واحدًا على الأقل قبل الإرسال.');
       const photos = await drUpload(d.files);
       const { data, error } = await sb.rpc('send_daily_update', {
         p_child_ids: ids,
@@ -2329,8 +2329,8 @@ async function drSubmit(st){
     render();
   }catch(err){
     const m = String((err && err.message) || err);
-    fail(m.includes('NOT_ALLOWED') ? 'بعض الأطفال خارج فصولك. حدّث الصفحة وأعد المحاولة.'
-       : m.includes('NO_CHILDREN') ? 'لم تختر أي طفل.'
+    fail(m.includes('NOT_ALLOWED') ? 'بعض الأطفال خارج فصولك. حدّثي الصفحة وأعيدي المحاولة.'
+       : m.includes('NO_CHILDREN') ? 'لم تختاري أي طفل.'
        : 'تعذّر الإرسال: ' + m);
   }
 }
@@ -4082,6 +4082,13 @@ function tenantSheet(t){
   };
 }
 
+// one CSV field: quoted when it holds a comma, quote or line break; a leading = + - @ gets a ' so Excel
+// shows it as text instead of running it as a formula
+function csvCell(v){
+  let t = String(v == null ? '' : v);
+  if(/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+  return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
 function monthStart(){ const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toLocaleDateString('en-CA'); }
 
 function adminReports(){
@@ -4108,7 +4115,7 @@ function adminReports(){
     const dl = el('<button class="btn soft sm">تنزيل CSV</button>');
     dl.onclick = () => {
       const head = 'الطفل,الفصل,أيام الحضور,غياب مبلغ\n';
-      const body = rows.map(r=>[r.full_name, r.class_name||'', r.present, r.absent_reported].join(',')).join('\n');
+      const body = rows.map(r=>[r.full_name, r.class_name||'', r.present, r.absent_reported].map(csvCell).join(',')).join('\n');
       const blob = new Blob(['\ufeff' + head + body], {type:'text/csv;charset=utf-8'});
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
