@@ -822,7 +822,7 @@ const GENERIC = IS_NATIVE || ['kidora','www','localhost','127','app',''].include
 const SLUG = GENERIC ? '' : HOST0;
 const BRAND_FALLBACK = GENERIC ? APP_BRAND
   : { name:'المبدعون الصغار', tagline:'تطبيق التواصل بين الروضة وأولياء الأمور', logo_url:'logo.png', theme:{} };
-function brandLogo(){ return (S.brand && S.brand.logo_url) || 'logo.png'; }
+function brandLogo(){ return (S.brand && S.brand.logo_url) || BRAND_FALLBACK.logo_url; }
 function kidsWord(n){
   if(n === 1) return 'طفل واحد';
   if(n === 2) return 'طفلان';
@@ -3970,7 +3970,7 @@ function viewPlatform(){
   if(!S.tenants.length) list.appendChild(el('<div class="empty">لا توجد روضات بعد.</div>'));
   S.tenants.forEach(t => {
     const b = el(`<button class="row">
-      <img src="${esc(t.logo_url||'logo.png')}" alt="" style="width:38px;height:38px;border-radius:12px;object-fit:contain;background:#fff;flex:none">
+      <img src="${esc(t.logo_url||APP_BRAND.logo_url)}" alt="" style="width:38px;height:38px;border-radius:12px;object-fit:contain;background:#fff;flex:none">
       <span class="nm"><b>${esc(t.name)}</b><span>${esc(t.slug||'—')} · ${t.children} طفل · ${t.parents} ولي أمر</span></span>
       <span class="tagx">الهوية</span>
     </button>`);
