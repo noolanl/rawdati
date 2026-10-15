@@ -3799,7 +3799,7 @@ function adminClasses(){
   S.classes.forEach(c => {
     const n = S.children.filter(k=>k.class_id===c.id).length;
     const b = el(`<button class="row">
-      <span class="nm"><b>فصل ${esc(c.name)}</b><span>${n} طفل</span></span>
+      <span class="nm"><b>فصل ${esc(c.name)}</b><span>${n ? kidsWord(n) : 'لا يوجد أطفال'}</span></span>
       <span class="tagx">تعديل</span>
     </button>`);
     b.onclick = () => classSheet(c);
@@ -4022,7 +4022,7 @@ function viewPlatform(){
   S.tenants.forEach(t => {
     const b = el(`<button class="row">
       <img src="${esc(t.logo_url||APP_BRAND.logo_url)}" alt="" style="width:38px;height:38px;border-radius:12px;object-fit:contain;background:#fff;flex:none">
-      <span class="nm"><b>${esc(t.name)}</b><span>${esc(t.slug||'—')} · ${t.children} طفل · ${t.parents} ولي أمر</span></span>
+      <span class="nm"><b>${esc(t.name)}</b><span>${esc(t.slug||'—')} · ${kidsWord(t.children)} · أولياء الأمور: ${t.parents}</span></span>
       <span class="tagx">الهوية</span>
     </button>`);
     b.onclick = () => tenantSheet(t);
@@ -4198,7 +4198,7 @@ function adminReports(){
     const done = withG.filter(x => x.consented > 0).length;
     const missing = withG.filter(x => x.consented === 0)
       .map(x => (S.children.find(c=>c.id===x.child_id)||{}).full_name).filter(Boolean);
-    box.innerHTML = `<p class="help">${done} من ${withG.length} طفل لديهم موافقة مسجّلة.</p>` +
+    box.innerHTML = `<p class="help">أطفال لديهم موافقة مسجّلة: ${done} من ${withG.length}.</p>` +
       (missing.length ? '<p class="help">بدون موافقة: ' + esc(missing.slice(0,12).join('، ')) + '</p>' : '');
   });
 
