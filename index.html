@@ -2911,7 +2911,7 @@ function adminOverview(){
       </div>`);
       if(r.profile_id){
         row.style.cursor = 'pointer';
-        row.onclick = () => resetPasswordFor(r.profile_id, r.full_name || r.phone);
+        row.onclick = () => resetPasswordFor(r.profile_id, r.full_name || r.phone, r.phone);
       } else {
         row.querySelector('.tagx').textContent = 'رقم غير مسجّل';
         row.querySelector('.tagx').className = 'tagx';
@@ -4245,7 +4245,7 @@ function staffSheet(p){
     <button class="btn soft sm" id="sx">إغلاق</button>
   `);
   sheetPanel.querySelector('#sx').onclick = closeSheet;
-  sheetPanel.querySelector('#spw').onclick = () => resetPasswordFor(p.id, p.full_name);
+  sheetPanel.querySelector('#spw').onclick = () => resetPasswordFor(p.id, p.full_name, p.phone);
   const tc = sheetPanel.querySelector('#tcls');
   if(tc){
     const chips = [...tc.querySelectorAll('[data-c]')];
@@ -4286,7 +4286,7 @@ async function loadInvites(){
   S.invites = data || [];
 }
 
-function resetPasswordFor(profileId, name){
+function resetPasswordFor(profileId, name, phone){
   openSheet(`<h3>كلمة مرور مؤقتة</h3>
     <p class="help">${esc(name || '')} — سيتم إبطال كلمة المرور الحالية فورًا.</p>
     <div id="rpout"></div>
@@ -4302,7 +4302,10 @@ function resetPasswordFor(profileId, name){
     }
     sheetPanel.querySelector('#rpout').innerHTML =
       '<p class="help">أرسل هذه الكلمة لولي الأمر، واطلب منه تغييرها من الإعدادات بعد الدخول.</p>' +
-      '<div class="codebox"><b id="rpv">' + esc(r.data) + '</b><button id="rpc">نسخ</button></div>';
+      '<div class="codebox"><b id="rpv">' + esc(r.data) + '</b><button id="rpc">نسخ</button>' +
+      (normPhone(phone) ? '<a class="wa" id="rpwa" target="_blank" rel="noopener" href="' + esc('https://wa.me/' + normPhone(phone) + '?text=' +
+        encodeURIComponent(`السلام عليكم، هذي كلمة مرور مؤقتة لحسابك في ${brandName()} على «كيدورا»: ${r.data}\nادخل برقم جوالك وهذي الكلمة، وبعدها غيّرها من الإعدادات ← كلمة المرور.`)) + '">واتساب</a>' : '') +
+      '</div>';
     sheetPanel.querySelector('#rpc').onclick = (ev)=>copyText(r.data, ev.target);
     e.target.remove();
     await safe(loadResets());
@@ -4321,7 +4324,7 @@ function guardianSheet(child, g){
     <button class="btn soft sm" id="gx">إغلاق</button>
   `);
   sheetPanel.querySelector('#gx').onclick = closeSheet;
-  sheetPanel.querySelector('#gpw').onclick = () => resetPasswordFor(g.id, g.full_name);
+  sheetPanel.querySelector('#gpw').onclick = () => resetPasswordFor(g.id, g.full_name, g.phone);
 
   sheetPanel.querySelector('#gunlink').onclick = () => confirmAction(
     'فصل ولي الأمر',
