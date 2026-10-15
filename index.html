@@ -1181,7 +1181,7 @@ async function loadCore(){
   S.policySeen = gr.filter(x => x.consent_at).map(x => x.policy_version || '').sort()[0] || '';
   S.photoConsent = gr.length ? gr.every(x => x.photo_consent === true) : false;   // opt-in: no answer = no photos
   if(isStaff0) S.noPhoto = new Set(((np && np.data) || []).map(r => r.child_id));
-  if(!S.activeClass || !rosterClasses().find(c => c.id === S.activeClass)) S.activeClass = (rosterClasses()[0] || {}).id || null;
+  if(!S.activeClass || !rosterTabs().find(c => c.id === S.activeClass)) S.activeClass = (rosterTabs()[0] || {}).id || null;
   return true;
 }
 
@@ -1245,9 +1245,19 @@ async function refresh(){
     const lk = (lkr && lkr.data) || [];
     S.linked = new Set(lk.map(r => (typeof r === 'string' ? r : r.children_with_push)));
   }
-  if(!S.activeClass && rosterClasses().length) S.activeClass = rosterClasses()[0].id;
+  if(!S.activeClass && rosterTabs().length) S.activeClass = rosterTabs()[0].id;
 }
 
+// children with no class (empty class cell in the Excel, or their class was deleted) get their own tab,
+// otherwise nobody could check them in. A teacher limited to some classes doesn't see it.
+const NO_CLASS = '__none';
+function rosterTabs(){
+  const list = rosterClasses().slice();
+  const role = S.preview || (S.profile && S.profile.role);
+  const limited = role === 'teacher' && (S.myClassIds || []).length;
+  if(!limited && S.children.some(c => !c.class_id)) list.push({ id: NO_CLASS, name: 'بدون فصل' });
+  return list;
+}
 // a teacher limited by the director to some classes sees only those; otherwise every class
 function rosterClasses(){
   const mine = S.myClassIds || [];
@@ -1365,7 +1375,7 @@ function markReportsSeen(ids){
   try { localStorage.setItem(SEEN_KEY, JSON.stringify(Array.from(s).slice(-400))); } catch(_){}
 }
 function parentReports(classId){
-  const kids = new Map(S.children.filter(c => !classId || c.class_id === classId).map(c => [c.id, c]));
+  const kids = new Map(S.children.filter(c => !classId || (classId === NO_CLASS ? !c.class_id : c.class_id === classId)).map(c => [c.id, c]));
   const out = [];
   Object.values(S.absences || {}).forEach(a => { const c = kids.get(a.child_id); if(c && a.day >= today())
     out.push({ id:'a:' + a.id, kind:'absence', child:c, day:a.day, at:a.created_at,
@@ -1777,16 +1787,16 @@ function statusOf(childId){
 
 /* ================= staff: roster ================= */
 function viewRoster(){
-  const kids = S.children.filter(c => c.class_id === S.activeClass);
+  const kids = S.children.filter(c => S.activeClass === NO_CLASS ? !c.class_id : c.class_id === S.activeClass);
   const inN = kids.filter(k => statusOf(k.id).k==='in').length;
   const leftN = kids.filter(k => statusOf(k.id).k==='left').length;
   const absN = kids.filter(k => statusOf(k.id).k==='out' && absenceOf(k.id)).length;
 
   const wrap = el('<div style="display:flex;flex-direction:column;gap:16px"></div>');
 
-  if(rosterClasses().length > 1){
+  if(rosterTabs().length > 1){
     const chips = el('<div class="chips"></div>');
-    rosterClasses().forEach(c => {
+    rosterTabs().forEach(c => {
       const b = el(`<button class="chip" aria-pressed="${c.id===S.activeClass}">${esc(c.name)}</button>`);
       b.onclick = () => { S.activeClass = c.id; render(); };
       chips.appendChild(b);
@@ -3464,13 +3474,14 @@ function importSheet(){
       const classes = Array.from(new Set(rows.map(r=>r.class).filter(Boolean)));
       const known = classes.filter(c => S.classes.some(x=>x.name===c));
       const isNew = classes.filter(c => !known.includes(c));
-      prev.innerHTML = `<div class="ok">${rows.length} طفل جاهز للاستيراد.</div>` +
+      prev.innerHTML = `<div class="ok">جاهز للاستيراد: ${kidsWord(rows.length)}.</div>` +
         (isNew.length ? `<p class="help">فصول ستُنشأ: ${esc(isNew.join('، '))}</p>` : '') +
+        (rows.some(r => !r.class) ? `<div class="err">${kidsWord(rows.filter(r => !r.class).length)} بدون فصل في الملف — ${rows.filter(r => !r.class).length === 1 ? 'يظهر' : 'يظهرون'} للمعلمات تحت «بدون فصل». الأفضل تكتبين الفصل في الملف، أو تحدّدينه بعدين من صفحة كل طفل.</div>` : '') +
         `<p class="help">يركب الحافلة: ${rows.filter(r=>r.bus).length} من ${rows.length} · جوال ولي الأمر: ${rows.filter(r=>r.phone).length} من ${rows.length}</p>` +
         `<div class="tblwrap"><table class="tbl"><thead><tr><th>الاسم</th><th>الفصل</th><th>الجنس</th><th>الحافلة</th></tr></thead><tbody>` +
         rows.slice(0,8).map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(r.class||'—')}</td><td>${r.gender==='m'?'ذكر':'أنثى'}</td><td>${r.bus?esc(r.route||'نعم'):'—'}</td></tr>`).join('') +
         `</tbody></table></div>` + (rows.length>8 ? `<p class="help">…و${rows.length-8} صفًا آخر.</p>` : '');
-      e.target.textContent = 'استيراد ' + rows.length + ' طفل';
+      e.target.textContent = 'استيراد ' + kidsWord(rows.length);
       return;
     }
 
