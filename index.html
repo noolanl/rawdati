@@ -289,6 +289,7 @@ body:has(.demobar) .topbar{position:relative;padding-top:12px !important}
 .codebox{display:flex;align-items:center;gap:10px;background:var(--blue-soft);border-radius:var(--r-md);padding:13px 15px}
 .codebox b{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:17px;color:var(--blue-ink);letter-spacing:.04em}
 .codebox button{border:none;background:var(--blue-ink);color:#fff;border-radius:999px;padding:8px 15px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}
+.codebox a.wa{border-radius:999px;padding:8px 13px;font-weight:600;font-size:13px;text-decoration:none;background:#fff;color:var(--green-ink);border:1px solid var(--green-soft);white-space:nowrap}
 
 .kid.absent{background:var(--pink-soft);box-shadow:none}
 .kid.absent .face{background:#fff;color:var(--pink-ink)}
@@ -3832,6 +3833,15 @@ function classSheet(c){
 }
 
 /* ---------- staff ---------- */
+// a staff join code as a ready WhatsApp message (no number: the director picks the chat)
+function staffCodeWa(code, role){
+  const who = role === 'bus' ? 'مرافقة الحافلة' : role === 'admin' ? 'الإدارة' : 'المعلمة';
+  const text = `السلام عليكم، هذا رمز دخولك (${who}) في ${brandName()} على تطبيق «كيدورا»: ${code}\n` +
+    `١) حمّلي التطبيق — آيفون: ${CARD_IOS}\nأندرويد: ${CARD_PLAY}\n` +
+    `٢) اختاري «حساب جديد» وسجّلي باسمك ورقم جوالك.\n٣) اكتبي الرمز. الرمز لك وحدك.`;
+  return 'https://wa.me/?text=' + encodeURIComponent(text);
+}
+
 function adminStaff(){
   const wrap = el('<div style="display:flex;flex-direction:column;gap:12px"></div>');
   const add = el('<button class="btn">إنشاء رمز دخول</button>');
@@ -3867,6 +3877,7 @@ function adminStaff(){
       openSheet(`<h3>رمز ${esc(label)}</h3>
         <p class="help">أعطي هذا الرمز لصاحبته لتسجّل حسابها. يُستخدم مرة واحدة، وتنتهي صلاحيته بعد ٣٠ يومًا.</p>
         <div class="codebox"><b>${esc(row.code)}</b><button id="sp">نسخ</button></div>
+        <a class="btn soft" id="swa" href="${esc(staffCodeWa(row.code, role))}" target="_blank" rel="noopener">📲 إرسال بواتساب</a>
         <button class="btn" id="sd">تم</button>`);
       sheetPanel.querySelector('#sp').onclick = (ev)=>copyText(row.code, ev.target);
       sheetPanel.querySelector('#sd').onclick = ()=>{ closeSheet(); render(); };
@@ -3898,6 +3909,7 @@ function adminStaff(){
           <b>${esc(i.code)}</b>
           <span class="used">${esc(roleLabel[i.role] || i.role)}</span>
         </span>
+        <a class="wa" href="${esc(staffCodeWa(i.code, i.role))}" target="_blank" rel="noopener" aria-label="إرسال الرمز بواتساب">واتساب</a>
         <button>نسخ</button></div>`);
       r.querySelector('button').onclick = (e)=>copyText(i.code, e.target);
       lx.appendChild(r);
