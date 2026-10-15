@@ -445,7 +445,7 @@ main{padding-bottom:max(100px, calc(84px + var(--safe-area-inset-bottom, env(saf
 <div class="sheet" id="sheet"><div class="panel" id="sheetPanel"></div></div>
 <div class="lightbox" id="lightbox"><button class="x" id="lbClose" aria-label="إغلاق">✕</button><img id="lbImg" alt=""></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
 <script>
 const SUPABASE_URL = 'https://gpfczbyehgsxwsdhnrvz.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_XJaRuA9SMay-IzQGxcJg-Q_ztALOvac';
@@ -3349,6 +3349,7 @@ function loadXlsx(){
   return new Promise((res, rej) => {
     const s = document.createElement('script');
     s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.integrity = 'sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw'; s.crossOrigin = 'anonymous';   // pinned file: the browser refuses it if the CDN copy ever changes
     s.onload = () => { xlsxLib = window.XLSX; res(xlsxLib); };
     s.onerror = () => rej(new Error('no-xlsx'));
     document.head.appendChild(s);
