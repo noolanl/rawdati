@@ -1083,6 +1083,24 @@ function renderOffline(){
   window.addEventListener('online', again);
 }
 
+// server error codes (NOT_ALLOWED, duplicate key, Failed to fetch…) → a sentence a director or parent understands
+function friendlyErr(m){
+  m = String((m && m.message) || m || '');
+  return /fetch|network|load failed|timeout|offline/i.test(m) ? 'تعذّر الاتصال. تأكد من الإنترنت وحاول مرة أخرى.'
+       : /NOT_AUTHENTICATED|JWT|session/i.test(m) ? 'انتهت الجلسة. سجّل الدخول مرة أخرى.'
+       : /NOT_ALLOWED|permission denied|row-level security/i.test(m) ? 'ليس لديك صلاحية لهذا الإجراء.'
+       : /DUPLICATE|duplicate key|already exists/i.test(m) ? 'هذا الاسم موجود من قبل.'
+       : /TOO_MANY/.test(m) ? 'وصلت إلى الحد المسموح اليوم.'
+       : /BAD_PHONE/.test(m) ? 'رقم الجوال غير صحيح. مثال: 0551234567'
+       : /LAST_ADMIN/.test(m) ? 'يجب أن تبقى مديرة واحدة على الأقل.'
+       : /CANNOT_DELETE_SELF|OWNER_CANNOT_SELF_DELETE/.test(m) ? 'لا يمكن حذف حسابك من هنا.'
+       : /NOT_FOUND/.test(m) ? 'لم نجده — ربما حُذف. حدّث الصفحة.'
+       : /different from the old password/i.test(m) ? 'كلمة المرور الجديدة يجب أن تختلف عن القديمة.'
+       : /password/i.test(m) ? 'كلمة المرور قصيرة أو ضعيفة. اكتب ٨ أحرف على الأقل.'
+       : /BAD_|INVALID|invalid input/i.test(m) ? 'تأكد من البيانات المدخلة.'
+       : /[؀-ۿ]/.test(m) ? m
+       : 'حدث خطأ. حاول مرة أخرى.';
+}
 // Supabase answers sign-up problems in English — show them in Arabic, with what to do next
 function authErrText(m){
   m = String(m || '');
@@ -1847,7 +1865,7 @@ function viewRoster(){
           S.attendance[k.id] = row;
         } else {
           b.classList.remove('busy');
-          toast('تعذّر التسجيل: ' + msg);
+          toast('تعذّر التسجيل: ' + friendlyErr(msg));
           return;
         }
       }
@@ -2007,7 +2025,7 @@ function composer(kind){
       notifyServer({ type:'post', post_id: data.id });
       closeSheet(); toast(isAct?'تم نشر النشاط':'تم إرسال الإعلان'); render();
     }catch(err){
-      sheetPanel.querySelector('#cmsg').innerHTML = '<div class="err">تعذّر النشر: '+esc(err.message)+'</div>';
+      sheetPanel.querySelector('#cmsg').innerHTML = '<div class="err">تعذّر النشر: '+esc(friendlyErr(err))+'</div>';
       btn.disabled=false; btn.textContent='نشر';
     }
   };
@@ -2353,7 +2371,7 @@ async function drSubmit(st){
     const m = String((err && err.message) || err);
     fail(m.includes('NOT_ALLOWED') ? 'بعض الأطفال خارج فصولك. حدّثي الصفحة وأعيدي المحاولة.'
        : m.includes('NO_CHILDREN') ? 'لم تختاري أي طفل.'
-       : 'تعذّر الإرسال: ' + m);
+       : 'تعذّر الإرسال: ' + friendlyErr(m));
   }
 }
 
@@ -2577,7 +2595,7 @@ function absenceSheet(child){
     const p_note = sheetPanel.querySelector('#an').value.trim() || null;
     const { data, error } = await sb.rpc('report_absence', { p_child: child.id, p_day, p_reason, p_note });
     if(error){
-      sheetPanel.querySelector('#amsg').innerHTML = '<div class="err">تعذّر الإرسال: '+esc(error.message)+'</div>';
+      sheetPanel.querySelector('#amsg').innerHTML = '<div class="err">تعذّر الإرسال: '+esc(friendlyErr(error))+'</div>';
       btn.disabled = false; btn.textContent = 'إرسال البلاغ'; return;
     }
     S.absences[child.id + '|' + p_day] = data;
@@ -3284,7 +3302,7 @@ function addChildSheet(){
       p_gender: sheetPanel.querySelector('#cg').value, p_birth: null
     });
     if(error){
-      sheetPanel.querySelector('#cmsg').innerHTML = '<div class="err">تعذّر الحفظ: '+esc(error.message)+'</div>';
+      sheetPanel.querySelector('#cmsg').innerHTML = '<div class="err">تعذّر الحفظ: '+esc(friendlyErr(error))+'</div>';
       btn.disabled = false; btn.textContent = 'إضافة'; return;
     }
     const row = Array.isArray(data) ? data[0] : data;
@@ -3740,7 +3758,7 @@ function childSheet(c){
       rides_bus: ridesBus,
       bus_route: ridesBus ? (sheetPanel.querySelector('#eroute').value.trim() || null) : null
     }).eq('id', c.id);
-    if(error){ sheetPanel.querySelector('#emsg').innerHTML='<div class="err">'+esc(error.message)+'</div>'; btn.disabled=false; btn.textContent='حفظ'; return; }
+    if(error){ sheetPanel.querySelector('#emsg').innerHTML='<div class="err">'+esc(friendlyErr(error))+'</div>'; btn.disabled=false; btn.textContent='حفظ'; return; }
     const phIn = sheetPanel.querySelector('#eph');
     if(inv && phIn && (normPhone(phIn.value) || '') !== (inv.phone || '')){
       if(phIn.value.trim() && !normPhone(phIn.value)){
@@ -3847,7 +3865,7 @@ function classSheet(c){
     const q = c ? sb.from('classes').update({ name }).eq('id', c.id)
                 : sb.from('classes').insert({ name, kindergarten_id: S.kg.id });
     const { error } = await q;
-    if(error){ sheetPanel.querySelector('#kmsg').innerHTML='<div class="err">'+esc(error.message)+'</div>'; btn.disabled=false; return; }
+    if(error){ sheetPanel.querySelector('#kmsg').innerHTML='<div class="err">'+esc(friendlyErr(error))+'</div>'; btn.disabled=false; return; }
     const { data } = await sb.from('classes').select('*').eq('kindergarten_id', S.kg.id).order('name');
     S.classes = data || [];
     closeSheet(); toast('تم الحفظ'); render();
@@ -4527,7 +4545,7 @@ function viewSettings(){
     if(v !== v2){ out.innerHTML = '<div class="err">كلمتا المرور غير متطابقتين.</div>'; return; }
     const { error } = await sb.auth.updateUser({ password: v });
     out.innerHTML = error
-      ? '<div class="err">'+esc(error.message)+'</div>'
+      ? '<div class="err">'+esc(friendlyErr(error))+'</div>'
       : '<div class="ok">تم تغيير كلمة المرور.</div>';
     if(!error){ pw.querySelector('#np').value = ''; pw.querySelector('#np2').value = ''; pw.querySelector('#nphint').textContent = ''; }
   };
